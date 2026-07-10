@@ -1,0 +1,172 @@
+t["verdict"] == "FAIL":
++    required_slicer_parts: set[str | None] = set()
++    if contract.get("parts"):
++        for part in contract["parts"]:
++            if part.get("required", True) and part.get("slicer", {}).get("required", False):
++                required_slicer_parts.add(part["id"])
++    elif contract.get("slicer", {}).get("required", False):
++        required_slicer_parts.add(None)
++
++    slicer_validation: list[dict[str, Any]] = []
++    reported_slicer_parts: set[str | None] = set()
++    for report in slicer_reports:
++        report_part = report.get("part_id")
++        reported_slicer_parts.add(report_part)
++        rules = {}
++        if contract.get("parts"):
++            matches = [part for part in contract["parts"] if part["id"] == report_part]
++            if not matches:
++                status, reason = "INCOMPLETE", "slicer report part_id is not present in the contract"
++                rules = {}
++            else:
++                rules = matches[0].get("slicer", {})
++                status = reason = ""
++        else:
++            if report_part not in (None, ""):
++                status, reason = "INCOMPLETE", "single-part contract requires an empty slicer report part_id"
++            else:
++                status = reason = ""
++            rules = contract.get("slicer", {})
++        verdict = report.get("verdict")
++        report_contract_hash = report.get("contract", {}).get("sha256")
++        source_hash = (report.get("source_mesh") or {}).get("sha256")
++        source_required = bool(rules.get("require_source_mesh_hash", rules.get("required", False)))
++        if not status:
++            if verdict == "FAIL":
++                status, reason = "FAIL", "slicer contract checks failed"
++            elif rules and verdict != "PASS":
++                status, reason = "INCOMPLETE", "configured slicer criteria require a passing slicer report"
++            elif expected_contract_sha256 and rules and report_contract_hash != expected_contract_sha256:
++                status, reason = "INCOMPLETE", "slicer report was not generated from the current contract"
++            elif source_required and not source_hash:
++                status, reason = "INCOMPLETE", "slicer report lacks a source mesh SHA-256"
++            elif source_hash and source_hash.lower() not in mesh_hashes_by_part.get(report_part, set()):
++                status, reason = "INCOMPLETE", "slicer source mesh does not match a current mesh report for this part"
++            else:
++                status, reason = "PASS", "slicer evidence is linked to the current part and source mesh"
++        slicer_validation.append({
++            "path": report.get("gcode", {}).get("path"),
++            "part_id": report_part,
++            "sha256": report.get("gcode", {}).get("sha256"),
++            "source_mesh_sha256": source_hash,
++            "verdict": verdict,
++            "contract_sha256": report_contract_hash,
++            "status": status,
++            "reason": reason,
++        })
++
++    missing_slicer_parts = sorted(
++        ("__single_part__" if item is None else item)
++        for item in (required_slicer_parts - reported_slicer_parts)
++    )
++
++    if (
++        any(item["status"] == "FAIL" for item in mesh_validation)
++        or any(item["status"] == "FAIL" for item in slicer_validation)
++        or evidence_result["verdict"] == "FAIL"
++    ):
+         verdict = "FAIL"
+     elif (
+         not mesh_validation
+         or missing_parts
++        or missing_slicer_parts
+         or any(item["status"] == "INCOMPLETE" for item in mesh_validation)
++        or any(item["status"] == "INCOMPLETE" for item in slicer_validation)
+         or evidence_result["verdict"] == "INCOMPLETE"
+         or provenance["verdict"] == "INCOMPLETE"
+     ):
+@@ -329,7 +403,10 @@ def gate(
+         "evidence": evidence_result,
+         "export_provenance": provenance,
+         "mesh_reports": mesh_validation,
++        "slicer_reports": slicer_validation,
+         "required_parts": sorted(required_parts),
+         "reported_parts": sorted(reported_parts),
+         "missing_required_parts": missing_parts,
++        "required_slicer_parts": sorted("__single_part__" if item is None else item for item in required_slicer_parts),
++        "missing_required_slicer_parts": missing_slicer_parts,
+     }
+diff --git a/skills/fusion-cad-guardian/scripts/guardian_lib/limits.py b/skills/fusion-cad-guardian/scripts/guardian_lib/limits.py
+index b99ca48..9f0053e 100644
+--- a/skills/fusion-cad-guardian/scripts/guardian_lib/limits.py
++++ b/skills/fusion-cad-guardian/scripts/guardian_lib/limits.py
+@@ -8,22 +8,29 @@ from .errors import GuardianError
+ 
+ @dataclass(frozen=True)
+ class ResourceLimits:
+-    """Hard preflight limits for untrusted or unexpectedly large mesh inputs."""
++    """Hard preflight limits for untrusted or unexpectedly large inputs."""
+ 
+     max_file_size_mb: float = 512.0
+     max_triangles: int = 5_000_000
+     max_coordinate_abs_mm: float = 1_000_000.0
+     max_estimated_memory_mb: float = 2048.0
++    max_archive_entries: int = 2048
++    max_archive_uncompressed_mb: float = 1024.0
++    max_compression_ratio: float = 200.0
+ 
+     def validate(self) -> "ResourceLimits":
+-        if self.max_file_size_mb <= 0:
+-            raise GuardianError("max_file_size_mb must be positive")
+-        if self.max_triangles <= 0:
+-            raise GuardianError("max_triangles must be positive")
+-        if self.max_coordinate_abs_mm <= 0:
+-            raise GuardianError("max_coordinate_abs_mm must be positive")
+-        if self.max_estimated_memory_mb <= 0:
+-            raise GuardianError("max_estimated_memory_mb must be positive")
++        numeric_positive = {
++            "max_file_size_mb": self.max_file_size_mb,
++            "max_triangles": self.max_triangles,
++            "max_coordinate_abs_mm": self.max_coordinate_abs_mm,
++            "max_estimated_memory_mb": self.max_estimated_memory_mb,
++            "max_archive_entries": self.max_archive_entries,
++            "max_archive_uncompressed_mb": self.max_archive_uncompressed_mb,
++            "max_compression_ratio": self.max_compression_ratio,
++        }
++        for name, value in numeric_positive.items():
++            if value <= 0:
++                raise GuardianError(f"{name} must be positive")
+         return self
+ 
+     def to_dict(self) -> dict[str, Any]:
+@@ -31,6 +38,8 @@ class ResourceLimits:
+ 
+ 
+ DEFAULT_RESOURCE_LIMITS = ResourceLimits()
++_LIMIT_FIELDS = set(DEFAULT_RESOURCE_LIMITS.to_dict())
++_INT_FIELDS = {"max_triangles", "max_archive_entries"}
+ 
+ 
+ def limits_from_mapping(data: Any | None, *, base: ResourceLimits | None = None) -> ResourceLimits:
+@@ -41,24 +50,17 @@ def limits_from_mapping(data: Any | None, *, base: ResourceLimits | None = None)
+         return current.validate()
+     if not isinstance(data, dict):
+         raise GuardianError("resource_limits must be an object")
+-    allowed = {
+-        "max_file_size_mb",
+-        "max_triangles",
+-        "max_coordinate_abs_mm",
+-        "max_estimated_memory_mb",
+-    }
+-    unknown = set(data) - allowed
++    unknown = set(data) - _LIMIT_FIELDS
+     if unknown:
+         raise GuardianError(f"resource_limits has unknown keys: {sorted(unknown)}")
+     values = current.to_dict()
+     values.update(data)
+     try:
+-        result = ResourceLimits(
+-            max_file_size_mb=float(values["max_file_size_mb"]),
+-            max_triangles=int(values["max_triangles"]),
+-            max_coordinate_abs_mm=float(values["max_coordinate_abs_mm"]),
+-            max_estimated_memory_mb=float(values["max_estimated_memory_mb"]),
+-        )
++        converted = {
++            key: int(value) if key in _INT_FIELDS else float(value)
++            for key, value in values.items()
++        }
++        result = ResourceLimits(**converted)
+     except (TypeError, ValueError) as exc:
+         raise GuardianError("resource_limits values must be numeric") from exc
+     return result.validate()
+@@ -70,17 +72,1
