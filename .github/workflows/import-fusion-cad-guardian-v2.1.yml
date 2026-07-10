@@ -1,0 +1,56 @@
+name: Import Fusion CAD Guardian v2.1.0
+
+on:
+  push:
+    paths:
+      - '.skill-payload/READY'
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct verified release archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f .skill-payload/READY
+          test -f .skill-payload/v2.1.0.part000
+          cat .skill-payload/v2.1.0.part* | base64 --decode > /tmp/fusion-cad-guardian-v2.1.0.zip
+          expected="$(tr -d '\r\n' < .skill-payload/READY)"
+          actual="$(sha256sum /tmp/fusion-cad-guardian-v2.1.0.zip | awk '{print $1}')"
+          test "$actual" = "$expected"
+      - name: Replace skill with v2.1.0
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf skills/fusion-cad-guardian /tmp/guardian-import
+          mkdir -p skills /tmp/guardian-import
+          unzip -q /tmp/fusion-cad-guardian-v2.1.0.zip -d /tmp/guardian-import
+          test -f /tmp/guardian-import/fusion-cad-guardian/SKILL.md
+          test "$(tr -d '\r\n' < /tmp/guardian-import/fusion-cad-guardian/VERSION)" = "2.1.0"
+          mv /tmp/guardian-import/fusion-cad-guardian skills/fusion-cad-guardian
+      - name: Validate release
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m compileall -q skills/fusion-cad-guardian/scripts skills/fusion-cad-guardian/tests
+          python -m unittest discover -s skills/fusion-cad-guardian/tests -v
+          python skills/fusion-cad-guardian/scripts/guardian.py self-test
+          python skills/fusion-cad-guardian/scripts/guardian.py validate contract skills/fusion-cad-guardian/assets/contract.example.json
+          python skills/fusion-cad-guardian/scripts/guardian.py validate evidence skills/fusion-cad-guardian/assets/evidence.example.json
+          python skills/fusion-cad-guardian/scripts/guardian.py validate capabilities skills/fusion-cad-guardian/assets/capabilities.example.json
+      - name: Commit release and remove transfer files
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .skill-payload
+          rm -f .github/workflows/import-fusion-cad-guardian-v2.1.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(fusion-cad-guardian): release v2.1.0"
+          git push
