@@ -13,26 +13,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Reconstruct verified release archive
+      - name: Reconstruct and verify source patch
         shell: bash
         run: |
           set -euo pipefail
           test -f .skill-payload/READY
-          test -f .skill-payload/v2.1.0.part000
-          cat .skill-payload/v2.1.0.part* | base64 --decode > /tmp/fusion-cad-guardian-v2.1.0.tar.xz
+          test -f .skill-payload/v2.1.0.patch.part000
+          cat .skill-payload/v2.1.0.patch.part* > /tmp/fusion-cad-guardian-v2.1.0.patch
           expected="$(tr -d '\r\n' < .skill-payload/READY)"
-          actual="$(sha256sum /tmp/fusion-cad-guardian-v2.1.0.tar.xz | awk '{print $1}')"
+          actual="$(sha256sum /tmp/fusion-cad-guardian-v2.1.0.patch | awk '{print $1}')"
           test "$actual" = "$expected"
-      - name: Replace skill with v2.1.0
+          git apply --check /tmp/fusion-cad-guardian-v2.1.0.patch
+      - name: Apply v2.1.0 source patch
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf skills/fusion-cad-guardian /tmp/guardian-import
-          mkdir -p skills /tmp/guardian-import
-          tar -xJf /tmp/fusion-cad-guardian-v2.1.0.tar.xz -C /tmp/guardian-import
-          test -f /tmp/guardian-import/fusion-cad-guardian/SKILL.md
-          test "$(tr -d '\r\n' < /tmp/guardian-import/fusion-cad-guardian/VERSION)" = "2.1.0"
-          mv /tmp/guardian-import/fusion-cad-guardian skills/fusion-cad-guardian
+          git apply /tmp/fusion-cad-guardian-v2.1.0.patch
+          test "$(tr -d '\r\n' < skills/fusion-cad-guardian/VERSION)" = "2.1.0"
       - name: Validate release
         shell: bash
         run: |
