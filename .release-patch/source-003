@@ -1,0 +1,190 @@
+duplicate, or checkpoint. Record the document and checkpoint identity in `evidence.json`.
++After each bounded phase, inspect the live result. For mechanisms, record joint type, axis, limits, sampled poses, and interference results. Read `references/mechanical-verification.md`.
+ 
+-### 5. Build and inspect only through Fusion MCP
+-
+-Use named parameters, descriptive components/bodies/features, separate components for separate physical parts, and fully constrained sketches where practical.
+-
+-After each bounded phase, inspect the result before proceeding. For mechanisms, verify joint type, axis, limits, sampled positions, and interference through available Fusion MCP tools.
+-
+-Read `references/mechanical-verification.md`.
+-
+-### 6. Record live-model and engineering evidence
+-
+-Create the ledger when needed:
++### 5. Record evidence and export provenance
+ 
+ ```powershell
+ py -3 "<skill-dir>\scripts\guardian.py" evidence-init `
+@@ -134,153 +97,111 @@ py -3 "<skill-dir>\scripts\guardian.py" evidence-init `
+   --out "fusion-guardian\evidence.json"
+ ```
+ 
+-Statuses:
++Evidence statuses:
+ 
+-- `PASS`: checked and passed; method and concrete evidence required;
+-- `FAIL`: checked and failed; method and concrete evidence required;
+-- `NOT_VERIFIED`: adequate evidence was not collected;
++- `PASS`: checked and passed; method and concrete evidence required.
++- `FAIL`: checked and failed; method and concrete evidence required.
++- `NOT_VERIFIED`: evidence was not collected.
+ - `NOT_APPLICABLE`: rationale required; a required check remains incomplete.
+ 
+-For multi-part contracts, part-specific evidence IDs are namespaced as `<part_id>.<requirement_id>`.
+-
+-A screenshot proves appearance, not dimensions or mechanical function. “Looks correct” is not evidence.
+-
+-Read `references/evidence-ledger.md`.
+-
+-### 7. Export each final manufacturing candidate
+-
+-Use Fusion MCP to export the exact intended body/component to STL in millimetres. If the connected MCP cannot export, use a one-time manual Fusion export and record that method explicitly.
+-
+-Every export record should include:
++A screenshot proves appearance, not dimensions or mechanical function.
+ 
+-- mesh path;
+-- SHA-256;
+-- part ID for multi-part contracts;
+-- component or body identity;
+-- Fusion document;
+-- checkpoint/version;
+-- export method.
+-
+-Populate hashes after export:
++Record the selected part/body, Fusion document, checkpoint/version, export method, file path, and SHA-256. Then run:
+ 
+ ```powershell
+ py -3 "<skill-dir>\scripts\guardian.py" evidence-hash "fusion-guardian\evidence.json"
+ ```
+ 
+-### 8. Audit exported STL files under resource limits
++Read `references/evidence-ledger.md`.
++
++### 6. Audit the exported manufacturing candidate
+ 
+-Single-part example:
++STL and core 3MF are supported. For a 3MF with multiple build objects, inspect and select the intended object explicitly:
+ 
+ ```powershell
++py -3 "<skill-dir>\scripts\guardian.py" inspect-3mf "fusion-guardian\exports\assembly.3mf"
++
+ py -3 "<skill-dir>\scripts\guardian.py" audit `
+-  "fusion-guardian\exports\camera-bracket.stl" `
++  "fusion-guardian\exports\assembly.3mf" `
++  --object-name "Camera Bracket" `
+   --contract "fusion-guardian\contract.json" `
++  --part-id camera_bracket `
+   --json "fusion-guardian\reports\camera-bracket.json" `
+-  --markdown "fusion-guardian\reports\camera-bracket.md"
++  --markdown "fusion-guardian\reports\camera-bracket.md" `
++  --html "fusion-guardian\reports\camera-bracket.html"
+ ```
+ 
+-Multi-part example:
++Do not claim support for advanced 3MF material, texture, beam-lattice, slice, or vendor extensions. Read `references/3mf-and-slicer.md` and `references/resource-limits.md`.
++
++### 7. Add slicer evidence only when an existing G-code file is available
++
++Guardian parses common metadata comments but never runs a slicer:
+ 
+ ```powershell
+-py -3 "<skill-dir>\scripts\guardian.py" audit `
+-  "fusion-guardian\exports\camera-bracket.stl" `
++py -3 "<skill-dir>\scripts\guardian.py" slicer-audit `
++  "fusion-guardian\gcode\camera-bracket.gcode" `
++  --source-mesh "fusion-guardian\exports\camera-bracket.3mf" `
+   --contract "fusion-guardian\contract.json" `
+   --part-id camera_bracket `
+-  --json "fusion-guardian\reports\camera-bracket.json"
++  --json "fusion-guardian\reports\camera-bracket.slicer.json"
+ ```
+ 
+-The auditor checks file identity, dimensions, topology, shells, triangle defects and quality, area, signed/absolute volume, uniform-density centre of mass, configured mass, build-plate contact, and orientation heuristics.
+-
+-It also enforces preflight limits for file size, triangle count, coordinate magnitude, and estimated Python memory. A contract may tighten these limits but cannot silently loosen the CLI/default limits.
++The source mesh hash must match the current mesh report when the contract requires it. Missing metadata remains unresolved; never substitute zero.
+ 
+-Read `references/resource-limits.md`.
++### 8. Repair only failed requirements
+ 
+-Exit codes:
++Use a bounded loop, normally no more than three iterations:
+ 
+-- `0`: successful audit or passing contract;
+-- `1`: geometric contract failure, blocked plan, regression, or failed gate;
+-- `2`: invalid input, invalid schema, resource-limit rejection, or execution error.
+-
+-### 9. Compare revisions before accepting repairs
++1. identify the failed requirement IDs;
++2. make the smallest targeted change through Fusion MCP;
++3. save a new checkpoint;
++4. re-inspect live evidence;
++5. re-export;
++6. refresh hashes;
++7. rerun affected mesh/slicer checks;
++8. compare revisions.
+ 
+ ```powershell
+-py -3 "<skill-dir>\scripts\guardian.py" compare `
+-  "fusion-guardian\reports\before.json" `
+-  "fusion-guardian\reports\after.json" `
+-  --json "fusion-guardian\reports\regression.json" `
+-  --markdown "fusion-guardian\reports\regression.md"
++py -3 "<skill-dir>\scripts\guardian.py" compare before.json after.json `
++  --json regression.json --html regression.html
+ ```
+ 
+-Reports must represent the same part identity. Review topology, shell, defect, volume, area, and verdict regressions.
+-
+-### 10. Repair with a bounded loop
+-
+-Use no more than three automatic repair iterations unless the user requests more.
+-
+-For each iteration:
+-
+-1. isolate the smallest failed requirement;
+-2. edit only the relevant Fusion features through Fusion MCP;
+-3. repeat the relevant live-model check;
+-4. update the evidence ledger;
+-5. re-export only affected parts;
+-6. refresh export hashes;
+-7. rerun the matching part audits;
+-8. compare against the previous reports;
+-9. stop if the same unresolved failure repeats twice.
+-
+-Do not regenerate the entire design when a local repair is sufficient.
+-
+-### 11. Run the final acceptance gate
++### 9. Run the final gate
+ 
+ ```powershell
+ py -3 "<skill-dir>\scripts\guardian.py" gate `
+   --contract "fusion-guardian\contract.json" `
+   --evidence "fusion-guardian\evidence.json" `
+   --mesh-report "fusion-guardian\reports\camera-bracket.json" `
+-  --mesh-report "fusion-guardian\reports\sensor-cover.json" `
++  --slicer-report "fusion-guardian\reports\camera-bracket.slicer.json" `
+   --json "fusion-guardian\reports\acceptance.json" `
+-  --markdown "fusion-guardian\reports\acceptance.md"
++  --html "fusion-guardian\reports\acceptance.html"
+ ```
+ 
+-The gate requires:
+-
+-- passing required evidence;
+-- current contract-linked reports;
+-- SHA-256-matched export provenance;
+-- matching part identity;
+-- one current passing report for every required part.
+-
+ Verdicts:
+ 
+-- `PASS`: all required evidence and all required part reports pass;
+-- `CONDITIONAL_PASS`: required checks pass, but optional engineering items remain;
+-- `INCOMPLETE`: required evidence, provenance, capability discovery, or a required part report is missing;
+-- `FAIL`: a required evidence or mesh check failed.
++- `PASS`: every required evidence source passes and provenance is current.
++- `CONDITIONAL_PASS`: required checks pass; optional checks remain unresolved.
++- `INCOMPLETE`: required evid
