@@ -3,8 +3,9 @@
     {
       "name": "camera-bracket",
       "part_id": "camera_bracket",
-      "mesh": "exports/camera-bracket.stl",
-      "contract": "contract.json"
+      "mesh": "exports/camera-mount.3mf",
+      "contract": "contract.json",
+      "object_name": "Camera Bracket"
     },
     {
       "name": "sensor-cover",

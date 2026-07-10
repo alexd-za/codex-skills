@@ -31,3 +31,8 @@ Every `parts[]` entry with `required: true` needs a current passing report. Miss
 4. Everything passes -> `PASS`.
 
 A conditional pass is not permission to skip safety-critical engineering review.
+
+
+## Slicer evidence
+
+When a project or part sets `slicer.required: true`, the gate requires a current passing slicer report. If source-mesh linkage is required, its SHA-256 must match the current mesh report for that part.

@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/alexd-za/codex-skills/main/skills/fusion-cad-guardian/schemas/slicer-report.schema.json",
+  "title": "Fusion CAD Guardian Slicer Evidence Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "guardian_version",
+    "generated_at",
+    "part_id",
+    "contract",
+    "gcode",
+    "source_mesh",
+    "preflight",
+    "metadata",
+    "checks",
+    "verdict",
+    "limitations"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "guardian_version": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "part_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "contract": {
+      "type": "object",
+      "required": [
+        "path",
+        "sha256",
+        "part_id"
+      ],
+      "properties": {
+        "path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "part_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "gcode": {
+      "type": "object",
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "source_mesh": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "additionalProperties": false
+    },
+    "preflight": {
+      "type": "object"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "checks": {
+      "type": "array"
+    },
+    "verdict": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "EVIDENCE_ONLY"
+      ]
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

@@ -3,52 +3,120 @@
   "$id": "https://raw.githubusercontent.com/alexd-za/codex-skills/main/skills/fusion-cad-guardian/schemas/capability-profile.schema.json",
   "title": "Fusion MCP Capability Profile",
   "type": "object",
-  "required": ["schema_version", "server", "capabilities", "notes"],
+  "required": [
+    "schema_version",
+    "server",
+    "capabilities",
+    "notes"
+  ],
   "additionalProperties": false,
   "properties": {
-    "$schema": {"type": "string"},
-    "schema_version": {"const": 1},
+    "$schema": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1
+    },
     "server": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "name": {"type": "string"},
-        "transport": {"type": "string"},
-        "endpoint": {"type": "string"},
-        "discovered_at": {"type": "string"}
+        "name": {
+          "type": "string"
+        },
+        "transport": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "discovered_at": {
+          "type": "string"
+        }
       }
     },
     "capabilities": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "connect": {"$ref": "#/$defs/capability"},
-        "inspect_active_document": {"$ref": "#/$defs/capability"},
-        "read_units": {"$ref": "#/$defs/capability"},
-        "save_checkpoint": {"$ref": "#/$defs/capability"},
-        "inspect_component_structure": {"$ref": "#/$defs/capability"},
-        "read_parameters": {"$ref": "#/$defs/capability"},
-        "inspect_feature_health": {"$ref": "#/$defs/capability"},
-        "measure_geometry": {"$ref": "#/$defs/capability"},
-        "query_mass_properties": {"$ref": "#/$defs/capability"},
-        "test_joints": {"$ref": "#/$defs/capability"},
-        "check_interference": {"$ref": "#/$defs/capability"},
-        "export_stl": {"$ref": "#/$defs/capability"},
-        "capture_viewport": {"$ref": "#/$defs/capability"}
+        "connect": {
+          "$ref": "#/$defs/capability"
+        },
+        "inspect_active_document": {
+          "$ref": "#/$defs/capability"
+        },
+        "read_units": {
+          "$ref": "#/$defs/capability"
+        },
+        "save_checkpoint": {
+          "$ref": "#/$defs/capability"
+        },
+        "inspect_component_structure": {
+          "$ref": "#/$defs/capability"
+        },
+        "read_parameters": {
+          "$ref": "#/$defs/capability"
+        },
+        "inspect_feature_health": {
+          "$ref": "#/$defs/capability"
+        },
+        "measure_geometry": {
+          "$ref": "#/$defs/capability"
+        },
+        "query_mass_properties": {
+          "$ref": "#/$defs/capability"
+        },
+        "test_joints": {
+          "$ref": "#/$defs/capability"
+        },
+        "check_interference": {
+          "$ref": "#/$defs/capability"
+        },
+        "export_stl": {
+          "$ref": "#/$defs/capability"
+        },
+        "export_3mf": {
+          "$ref": "#/$defs/capability"
+        },
+        "capture_viewport": {
+          "$ref": "#/$defs/capability"
+        }
       }
     },
-    "notes": {"type": "array", "items": {"type": "string"}}
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
   },
   "$defs": {
     "capability": {
       "type": "object",
-      "required": ["status", "tool", "method", "notes"],
+      "required": [
+        "status",
+        "tool",
+        "method",
+        "notes"
+      ],
       "additionalProperties": false,
       "properties": {
-        "status": {"enum": ["available", "unavailable", "unknown"]},
-        "tool": {"type": "string"},
-        "method": {"type": "string"},
-        "notes": {"type": "string"}
+        "status": {
+          "enum": [
+            "available",
+            "unavailable",
+            "unknown"
+          ]
+        },
+        "tool": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        }
       }
     }
   }

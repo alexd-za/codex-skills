@@ -28,3 +28,8 @@ py -3 scripts/guardian.py audit part.stl `
 A contract may contain `resource_limits`. Contract values can only tighten the CLI/default limits; they cannot silently loosen them. This prevents a generated contract from disabling safety controls.
 
 Exceeding a resource limit returns exit code `2` and no acceptance result. It is an input-safety failure, not a failed geometric requirement.
+
+
+## Archive limits
+
+3MF and verification bundles also enforce archive-entry count, total expanded size, and compression-ratio limits. These checks run before XML, manifest, or mesh processing.

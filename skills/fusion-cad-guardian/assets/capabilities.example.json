@@ -80,6 +80,12 @@
       "method": "",
       "notes": "Example tool name; replace with the actual connected server tool."
     },
+    "export_3mf": {
+      "status": "unknown",
+      "tool": "",
+      "method": "",
+      "notes": "Set available only when the connected MCP or an explicit manual Fusion procedure can export 3MF."
+    },
     "capture_viewport": {
       "status": "unknown",
       "tool": "",

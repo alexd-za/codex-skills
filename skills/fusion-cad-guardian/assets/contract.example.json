@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/alexd-za/codex-skills/main/skills/fusion-cad-guardian/schemas/contract.schema.json",
   "schema_version": 2,
-  "schema_revision": "2.1",
+  "schema_revision": "2.2",
   "part_name": "Rover Camera Mount Assembly",
   "task_type": "assembly",
   "units": "mm",
@@ -13,9 +13,18 @@
       "required": true,
       "mesh": {
         "expected_dimensions_mm": {
-          "x": {"target": 80.0, "tolerance": 0.2},
-          "y": {"target": 45.0, "tolerance": 0.2},
-          "z": {"target": 32.0, "tolerance": 0.2}
+          "x": {
+            "target": 80.0,
+            "tolerance": 0.2
+          },
+          "y": {
+            "target": 45.0,
+            "tolerance": 0.2
+          },
+          "z": {
+            "target": 32.0,
+            "tolerance": 0.2
+          }
         },
         "require_watertight": true,
         "max_shells": 1,
@@ -31,13 +40,60 @@
         "require_positive_signed_volume": true
       },
       "fusion_requirements": [
-        {"id":"component_present","required":true,"capability":"inspect_component_structure","description":"Part component/body exists and is uniquely identifiable"},
-        {"id":"critical_parameters","required":true,"capability":"read_parameters","description":"Part-specific critical parameters verified"},
-        {"id":"feature_health","required":true,"capability":"inspect_feature_health","description":"Part-specific feature history has no unresolved failures"},
-        {"id":"export_selection","required":true,"capability":"export_stl","description":"Correct part body/component selected for export"}
+        {
+          "id": "component_present",
+          "required": true,
+          "capability": "inspect_component_structure",
+          "description": "Part component/body exists and is uniquely identifiable"
+        },
+        {
+          "id": "critical_parameters",
+          "required": true,
+          "capability": "read_parameters",
+          "description": "Part-specific critical parameters verified"
+        },
+        {
+          "id": "feature_health",
+          "required": true,
+          "capability": "inspect_feature_health",
+          "description": "Part-specific feature history has no unresolved failures"
+        },
+        {
+          "id": "export_selection",
+          "required": true,
+          "capability": "export_stl",
+          "description": "Correct part body/component selected for export"
+        }
       ],
-      "engineering_requirements": [{"id":"fastener_fit_reviewed","required":true,"description":"M3 fastener fits and print clearances reviewed"}],
-      "notes": ["Replace placeholder mesh dimensions with this part's actual acceptance criteria."]
+      "engineering_requirements": [
+        {
+          "id": "fastener_fit_reviewed",
+          "required": true,
+          "description": "M3 fastener fits and print clearances reviewed"
+        }
+      ],
+      "notes": [
+        "Replace placeholder mesh dimensions with this part's actual acceptance criteria."
+      ],
+      "slicer": {
+        "required": true,
+        "require_source_mesh_hash": true,
+        "required_metadata_fields": [
+          "estimated_print_time_seconds",
+          "filament_used_g",
+          "nozzle_diameters_mm"
+        ],
+        "print_time_seconds": {
+          "max": 14400
+        },
+        "filament_g": {
+          "max": 80
+        },
+        "allowed_nozzle_diameters_mm": [
+          0.4,
+          0.6
+        ]
+      }
     },
     {
       "id": "sensor_cover",
@@ -45,9 +101,18 @@
       "required": true,
       "mesh": {
         "expected_dimensions_mm": {
-          "x": {"target": 55.0, "tolerance": 0.2},
-          "y": {"target": 38.0, "tolerance": 0.2},
-          "z": {"target": 18.0, "tolerance": 0.2}
+          "x": {
+            "target": 55.0,
+            "tolerance": 0.2
+          },
+          "y": {
+            "target": 38.0,
+            "tolerance": 0.2
+          },
+          "z": {
+            "target": 18.0,
+            "tolerance": 0.2
+          }
         },
         "require_watertight": true,
         "max_shells": 1,
@@ -63,39 +128,148 @@
         "require_positive_signed_volume": true
       },
       "fusion_requirements": [
-        {"id":"component_present","required":true,"capability":"inspect_component_structure","description":"Part component/body exists and is uniquely identifiable"},
-        {"id":"critical_parameters","required":true,"capability":"read_parameters","description":"Part-specific critical parameters verified"},
-        {"id":"feature_health","required":true,"capability":"inspect_feature_health","description":"Part-specific feature history has no unresolved failures"},
-        {"id":"export_selection","required":true,"capability":"export_stl","description":"Correct part body/component selected for export"}
+        {
+          "id": "component_present",
+          "required": true,
+          "capability": "inspect_component_structure",
+          "description": "Part component/body exists and is uniquely identifiable"
+        },
+        {
+          "id": "critical_parameters",
+          "required": true,
+          "capability": "read_parameters",
+          "description": "Part-specific critical parameters verified"
+        },
+        {
+          "id": "feature_health",
+          "required": true,
+          "capability": "inspect_feature_health",
+          "description": "Part-specific feature history has no unresolved failures"
+        },
+        {
+          "id": "export_selection",
+          "required": true,
+          "capability": "export_stl",
+          "description": "Correct part body/component selected for export"
+        }
       ],
       "engineering_requirements": [],
-      "notes": ["Replace placeholder mesh dimensions with this part's actual acceptance criteria."]
+      "notes": [
+        "Replace placeholder mesh dimensions with this part's actual acceptance criteria."
+      ],
+      "slicer": {
+        "required": false,
+        "require_source_mesh_hash": true
+      }
     }
   ],
   "fusion_requirements": [
-    {"id":"active_document","required":true,"capability":"inspect_active_document","description":"Active Fusion document and design context confirmed"},
-    {"id":"safe_checkpoint","required":true,"capability":"save_checkpoint","description":"Original design preserved by save, version, copy, or explicit checkpoint"},
-    {"id":"units_confirmed","required":true,"capability":"read_units","description":"Design units confirmed"},
-    {"id":"component_structure","required":true,"capability":"inspect_component_structure","description":"Expected components and bodies verified"},
-    {"id":"critical_parameters","required":true,"capability":"read_parameters","description":"Critical dimensions or named parameters verified in Fusion"},
-    {"id":"feature_health","required":true,"capability":"inspect_feature_health","description":"No unresolved feature or timeline failures"},
-    {"id":"export_selection","required":true,"capability":"export_stl","description":"Exported body/component matches the intended final candidate"},
-    {"id":"joints_verified","required":true,"capability":"test_joints","description":"Joint type, axis, limits, and intended degrees of freedom verified"},
-    {"id":"motion_sampled","required":true,"capability":"test_joints","description":"Neutral, extreme, and representative intermediate positions inspected"},
-    {"id":"interference_checked","required":true,"capability":"check_interference","description":"Interference checked at representative positions"}
+    {
+      "id": "active_document",
+      "required": true,
+      "capability": "inspect_active_document",
+      "description": "Active Fusion document and design context confirmed"
+    },
+    {
+      "id": "safe_checkpoint",
+      "required": true,
+      "capability": "save_checkpoint",
+      "description": "Original design preserved by save, version, copy, or explicit checkpoint"
+    },
+    {
+      "id": "units_confirmed",
+      "required": true,
+      "capability": "read_units",
+      "description": "Design units confirmed"
+    },
+    {
+      "id": "component_structure",
+      "required": true,
+      "capability": "inspect_component_structure",
+      "description": "Expected components and bodies verified"
+    },
+    {
+      "id": "critical_parameters",
+      "required": true,
+      "capability": "read_parameters",
+      "description": "Critical dimensions or named parameters verified in Fusion"
+    },
+    {
+      "id": "feature_health",
+      "required": true,
+      "capability": "inspect_feature_health",
+      "description": "No unresolved feature or timeline failures"
+    },
+    {
+      "id": "export_selection",
+      "required": true,
+      "capability": "export_stl",
+      "description": "Exported body/component matches the intended final candidate"
+    },
+    {
+      "id": "joints_verified",
+      "required": true,
+      "capability": "test_joints",
+      "description": "Joint type, axis, limits, and intended degrees of freedom verified"
+    },
+    {
+      "id": "motion_sampled",
+      "required": true,
+      "capability": "test_joints",
+      "description": "Neutral, extreme, and representative intermediate positions inspected"
+    },
+    {
+      "id": "interference_checked",
+      "required": true,
+      "capability": "check_interference",
+      "description": "Interference checked at representative positions"
+    }
   ],
   "engineering_requirements": [
-    {"id":"material_confirmed","required":false,"description":"Material and manufacturing process confirmed"},
-    {"id":"loads_reviewed","required":false,"description":"Expected loads, torque, impact, and safety factors reviewed"},
-    {"id":"tolerances_reviewed","required":false,"description":"Fits, clearances, shrinkage, and manufacturing tolerances reviewed"},
-    {"id":"physical_test_planned","required":false,"description":"Physical fit/function test planned before competition or deployment"}
+    {
+      "id": "material_confirmed",
+      "required": false,
+      "description": "Material and manufacturing process confirmed"
+    },
+    {
+      "id": "loads_reviewed",
+      "required": false,
+      "description": "Expected loads, torque, impact, and safety factors reviewed"
+    },
+    {
+      "id": "tolerances_reviewed",
+      "required": false,
+      "description": "Fits, clearances, shrinkage, and manufacturing tolerances reviewed"
+    },
+    {
+      "id": "physical_test_planned",
+      "required": false,
+      "description": "Physical fit/function test planned before competition or deployment"
+    }
   ],
-  "assembly_requirements": [{"id":"mount_interface_verified","required":true,"capability":"measure_geometry","description":"Bracket-to-cover mounting interface dimensions verified"}],
+  "assembly_requirements": [
+    {
+      "id": "mount_interface_verified",
+      "required": true,
+      "capability": "measure_geometry",
+      "description": "Bracket-to-cover mounting interface dimensions verified"
+    }
+  ],
   "export_provenance_required": true,
-  "resource_limits": {"max_file_size_mb":512.0,"max_triangles":5000000,"max_coordinate_abs_mm":1000000.0,"max_estimated_memory_mb":2048.0},
+  "resource_limits": {
+    "max_file_size_mb": 512.0,
+    "max_triangles": 5000000,
+    "max_coordinate_abs_mm": 1000000.0,
+    "max_estimated_memory_mb": 2048.0,
+    "max_archive_entries": 2048,
+    "max_archive_uncompressed_mb": 1024.0,
+    "max_compression_ratio": 200.0
+  },
   "notes": [
-    "Replace example dimensions with actual acceptance criteria.",
+    "Replace example dimensions and slicer limits with actual acceptance criteria.",
     "Mesh checks do not verify wall thickness, joints, strength, or local feature tolerances.",
-    "When parts is non-empty, audit each export with --part-id."
-  ]
+    "When parts is non-empty, audit each export with --part-id.",
+    "Use --object-id or --object-name when a 3MF contains multiple build objects."
+  ],
+  "slicer": {}
 }

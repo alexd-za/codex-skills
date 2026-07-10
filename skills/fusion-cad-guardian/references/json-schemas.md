@@ -20,3 +20,9 @@ py -3 scripts/guardian.py validate audit-report reports/part.json
 ```
 
 The published schemas are for editor completion, external validation, CI, interoperability, and versioned documentation. Runtime validation does not require the third-party `jsonschema` package.
+
+
+Additional v2.2 schemas:
+
+- `slicer-report.schema.json`;
+- `bundle-manifest.schema.json`.

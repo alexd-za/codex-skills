@@ -43,3 +43,8 @@ Record these results in the evidence ledger.
 - rules compliance.
 
 Use the proper Fusion tool, calculation, simulation, slicer, physical test, or human review. Otherwise mark the claim `NOT_VERIFIED`.
+
+
+## v2.2 exported-file boundary
+
+Guardian may inspect STL, the supported core subset of 3MF, and metadata in an existing G-code file. This remains exported-file evidence. It does not authorize live Fusion changes, slicer execution, or claims about physical manufacture.

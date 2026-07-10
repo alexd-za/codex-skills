@@ -1,72 +1,483 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/alexd-za/codex-skills/main/skills/fusion-cad-guardian/schemas/contract.schema.json",
-  "title": "Fusion CAD Guardian Contract",
+  "title": "Fusion CAD Guardian Contract v2.2",
   "type": "object",
-  "required": ["schema_version","part_name","task_type","units","mesh","parts","fusion_requirements","engineering_requirements","export_provenance_required"],
+  "required": [
+    "schema_version",
+    "part_name",
+    "task_type",
+    "units",
+    "mesh",
+    "parts",
+    "fusion_requirements",
+    "engineering_requirements",
+    "export_provenance_required"
+  ],
   "additionalProperties": false,
   "properties": {
-    "$schema": {"type":"string"},
-    "schema_version": {"const":2},
-    "schema_revision": {"type":"string","pattern":"^2\\.[0-9]+$"},
-    "part_name": {"type":"string","minLength":1},
-    "task_type": {"enum":["part","assembly"]},
-    "units": {"const":"mm"},
-    "mesh": {"$ref":"#/$defs/mesh"},
-    "parts": {"type":"array","items":{"$ref":"#/$defs/part"}},
-    "fusion_requirements": {"type":"array","items":{"$ref":"#/$defs/requirement"}},
-    "engineering_requirements": {"type":"array","items":{"$ref":"#/$defs/requirement"}},
-    "assembly_requirements": {"type":"array","items":{"$ref":"#/$defs/requirement"}},
-    "export_provenance_required": {"type":"boolean"},
-    "resource_limits": {"$ref":"#/$defs/resourceLimits"},
-    "notes": {"type":"array","items":{"type":"string"}}
+    "$schema": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 2
+    },
+    "schema_revision": {
+      "type": "string",
+      "pattern": "^2\\.[0-9]+$"
+    },
+    "part_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_type": {
+      "enum": [
+        "part",
+        "assembly"
+      ]
+    },
+    "units": {
+      "const": "mm"
+    },
+    "mesh": {
+      "$ref": "#/$defs/mesh"
+    },
+    "parts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/part"
+      }
+    },
+    "fusion_requirements": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/requirement"
+      }
+    },
+    "engineering_requirements": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/requirement"
+      }
+    },
+    "assembly_requirements": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/requirement"
+      }
+    },
+    "export_provenance_required": {
+      "type": "boolean"
+    },
+    "resource_limits": {
+      "$ref": "#/$defs/resourceLimits"
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "slicer": {
+      "$ref": "#/$defs/slicer"
+    }
   },
-  "allOf": [{"if":{"properties":{"parts":{"minItems":1}},"required":["parts"]},"then":{"properties":{"mesh":{"maxProperties":0}}}}],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "parts": {
+            "minItems": 1
+          }
+        },
+        "required": [
+          "parts"
+        ]
+      },
+      "then": {
+        "properties": {
+          "mesh": {
+            "maxProperties": 0
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
-    "id": {"type":"string","pattern":"^[A-Za-z][A-Za-z0-9_.-]*$"},
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+    },
     "range": {
-      "type":"object","additionalProperties":false,
-      "properties":{"target":{"type":"number"},"tolerance":{"type":"number","minimum":0},"min":{"type":"number"},"max":{"type":"number"}},
-      "oneOf":[
-        {"required":["target","tolerance"],"not":{"anyOf":[{"required":["min"]},{"required":["max"]}]}},
-        {"anyOf":[{"required":["min"]},{"required":["max"]}],"not":{"anyOf":[{"required":["target"]},{"required":["tolerance"]}]}}
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "type": "number"
+        },
+        "tolerance": {
+          "type": "number",
+          "minimum": 0
+        },
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "target",
+            "tolerance"
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "min"
+                ]
+              },
+              {
+                "required": [
+                  "max"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "anyOf": [
+            {
+              "required": [
+                "min"
+              ]
+            },
+            {
+              "required": [
+                "max"
+              ]
+            }
+          ],
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "target"
+                ]
+              },
+              {
+                "required": [
+                  "tolerance"
+                ]
+              }
+            ]
+          }
+        }
       ]
     },
     "requirement": {
-      "type":"object","required":["id","required","description"],"additionalProperties":false,
-      "properties":{"id":{"$ref":"#/$defs/id"},"required":{"type":"boolean"},"description":{"type":"string"},"capability":{"$ref":"#/$defs/id"}}
+      "type": "object",
+      "required": [
+        "id",
+        "required",
+        "description"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string"
+        },
+        "capability": {
+          "$ref": "#/$defs/id"
+        }
+      }
     },
     "mesh": {
-      "type":"object","additionalProperties":false,
+      "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "expected_dimensions_mm":{"type":"object","additionalProperties":false,"properties":{"x":{"$ref":"#/$defs/range"},"y":{"$ref":"#/$defs/range"},"z":{"$ref":"#/$defs/range"}}},
-        "volume_mm3":{"$ref":"#/$defs/range"},
-        "surface_area_mm2":{"$ref":"#/$defs/range"},
-        "mass_g":{"$ref":"#/$defs/range"},
-        "density_g_cm3":{"type":"number","exclusiveMinimum":0},
-        "require_watertight":{"type":"boolean"},
-        "max_shells":{"type":"integer","minimum":0},
-        "max_boundary_edges":{"type":"integer","minimum":0},
-        "max_nonmanifold_edges":{"type":"integer","minimum":0},
-        "max_degenerate_triangles":{"type":"integer","minimum":0},
-        "max_duplicate_triangles":{"type":"integer","minimum":0},
-        "max_inconsistent_winding_edges":{"type":"integer","minimum":0},
-        "max_sliver_triangles":{"type":"integer","minimum":0},
-        "min_triangle_quality":{"type":"number","minimum":0,"maximum":1},
-        "min_triangles":{"type":"integer","minimum":0},
-        "max_triangles":{"type":"integer","minimum":0},
-        "require_positive_signed_volume":{"type":"boolean"},
-        "build_plate":{"type":"object","additionalProperties":false,"required":["axis"],"properties":{"axis":{"enum":["x","y","z"]},"plane_mm":{"type":"number"},"tolerance_mm":{"type":"number","minimum":0},"min_contact_vertices":{"type":"integer","minimum":0},"min_contact_area_mm2":{"type":"number","minimum":0}}},
-        "orientation":{"type":"object","additionalProperties":false,"properties":{"build_axis":{"enum":["x","y","z"]},"severe_overhang_angle_degrees":{"type":"number","minimum":0,"maximum":90},"max_severe_downward_area_mm2":{"type":"number","minimum":0}}}
+        "expected_dimensions_mm": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "x": {
+              "$ref": "#/$defs/range"
+            },
+            "y": {
+              "$ref": "#/$defs/range"
+            },
+            "z": {
+              "$ref": "#/$defs/range"
+            }
+          }
+        },
+        "volume_mm3": {
+          "$ref": "#/$defs/range"
+        },
+        "surface_area_mm2": {
+          "$ref": "#/$defs/range"
+        },
+        "mass_g": {
+          "$ref": "#/$defs/range"
+        },
+        "density_g_cm3": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "require_watertight": {
+          "type": "boolean"
+        },
+        "max_shells": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_boundary_edges": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_nonmanifold_edges": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_degenerate_triangles": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_duplicate_triangles": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_inconsistent_winding_edges": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_sliver_triangles": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "min_triangle_quality": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "min_triangles": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_triangles": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "require_positive_signed_volume": {
+          "type": "boolean"
+        },
+        "build_plate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "axis"
+          ],
+          "properties": {
+            "axis": {
+              "enum": [
+                "x",
+                "y",
+                "z"
+              ]
+            },
+            "plane_mm": {
+              "type": "number"
+            },
+            "tolerance_mm": {
+              "type": "number",
+              "minimum": 0
+            },
+            "min_contact_vertices": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "min_contact_area_mm2": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "orientation": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "build_axis": {
+              "enum": [
+                "x",
+                "y",
+                "z"
+              ]
+            },
+            "severe_overhang_angle_degrees": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 90
+            },
+            "max_severe_downward_area_mm2": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        }
       }
     },
     "part": {
-      "type":"object","required":["id","name","required","mesh","fusion_requirements","engineering_requirements"],"additionalProperties":false,
-      "properties":{"id":{"$ref":"#/$defs/id"},"name":{"type":"string","minLength":1},"required":{"type":"boolean"},"mesh":{"$ref":"#/$defs/mesh"},"fusion_requirements":{"type":"array","items":{"$ref":"#/$defs/requirement"}},"engineering_requirements":{"type":"array","items":{"$ref":"#/$defs/requirement"}},"notes":{"type":"array","items":{"type":"string"}}}
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "required",
+        "mesh",
+        "fusion_requirements",
+        "engineering_requirements"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "mesh": {
+          "$ref": "#/$defs/mesh"
+        },
+        "fusion_requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/requirement"
+          }
+        },
+        "engineering_requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/requirement"
+          }
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "slicer": {
+          "$ref": "#/$defs/slicer"
+        }
+      }
     },
     "resourceLimits": {
-      "type":"object","additionalProperties":false,
-      "properties":{"max_file_size_mb":{"type":"number","exclusiveMinimum":0},"max_triangles":{"type":"integer","minimum":1},"max_coordinate_abs_mm":{"type":"number","exclusiveMinimum":0},"max_estimated_memory_mb":{"type":"number","exclusiveMinimum":0}}
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_file_size_mb": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "max_triangles": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_coordinate_abs_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "max_estimated_memory_mb": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "max_archive_entries": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_archive_uncompressed_mb": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "max_compression_ratio": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "slicer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "require_source_mesh_hash": {
+          "type": "boolean"
+        },
+        "required_metadata_fields": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "generator",
+              "estimated_print_time_seconds",
+              "filament_used_mm",
+              "filament_used_cm3",
+              "filament_used_g",
+              "layer_count",
+              "layer_height_mm",
+              "first_layer_height_mm",
+              "nozzle_diameters_mm",
+              "max_z_mm"
+            ]
+          }
+        },
+        "print_time_seconds": {
+          "$ref": "#/$defs/range"
+        },
+        "filament_mm": {
+          "$ref": "#/$defs/range"
+        },
+        "filament_cm3": {
+          "$ref": "#/$defs/range"
+        },
+        "filament_g": {
+          "$ref": "#/$defs/range"
+        },
+        "layer_count": {
+          "$ref": "#/$defs/range"
+        },
+        "layer_height_mm": {
+          "$ref": "#/$defs/range"
+        },
+        "first_layer_height_mm": {
+          "$ref": "#/$defs/range"
+        },
+        "max_z_mm": {
+          "$ref": "#/$defs/range"
+        },
+        "allowed_nozzle_diameters_mm": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      }
     }
   }
 }

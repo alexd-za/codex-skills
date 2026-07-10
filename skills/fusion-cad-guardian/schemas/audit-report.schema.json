@@ -1,39 +1,128 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/alexd-za/codex-skills/main/skills/fusion-cad-guardian/schemas/audit-report.schema.json",
-  "title": "Fusion CAD Guardian STL Audit Report",
+  "title": "Fusion CAD Guardian Mesh Audit Report",
   "type": "object",
-  "required": ["guardian_version", "generated_at", "mesh", "contract", "resource_limits", "input_preflight", "metrics", "checks", "verdict", "limitations"],
+  "required": [
+    "guardian_version",
+    "generated_at",
+    "mesh",
+    "contract",
+    "resource_limits",
+    "input_preflight",
+    "metrics",
+    "checks",
+    "verdict",
+    "limitations"
+  ],
   "properties": {
-    "$schema": {"type": "string"},
-    "guardian_version": {"type": "string"},
-    "generated_at": {"type": "string"},
+    "$schema": {
+      "type": "string"
+    },
+    "guardian_version": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string"
+    },
     "mesh": {
       "type": "object",
-      "required": ["path", "sha256", "format", "size_bytes"],
+      "required": [
+        "path",
+        "sha256",
+        "format",
+        "size_bytes",
+        "source_metadata"
+      ],
       "properties": {
-        "path": {"type": "string"},
-        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "format": {"enum": ["ascii", "binary"]},
-        "size_bytes": {"type": "integer", "minimum": 0}
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "format": {
+          "enum": [
+            "stl-ascii",
+            "stl-binary",
+            "3mf"
+          ]
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_metadata": {
+          "type": "object"
+        }
       }
     },
     "contract": {
       "type": "object",
       "properties": {
-        "path": {"type": ["string", "null"]},
-        "sha256": {"type": ["string", "null"]},
-        "schema_version": {"type": ["integer", "null"]},
-        "schema_revision": {"type": ["string", "null"]},
-        "part_id": {"type": ["string", "null"]},
-        "part_name": {"type": ["string", "null"]}
+        "path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "schema_version": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "schema_revision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "part_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "part_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       }
     },
-    "resource_limits": {"type": "object"},
-    "input_preflight": {"type": "object"},
-    "metrics": {"type": "object"},
-    "checks": {"type": "array"},
-    "verdict": {"enum": ["PASS", "FAIL", "AUDIT_ONLY"]},
-    "limitations": {"type": "array", "items": {"type": "string"}}
+    "resource_limits": {
+      "type": "object"
+    },
+    "input_preflight": {
+      "type": "object"
+    },
+    "metrics": {
+      "type": "object"
+    },
+    "checks": {
+      "type": "array"
+    },
+    "verdict": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "AUDIT_ONLY"
+      ]
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
   }
 }
