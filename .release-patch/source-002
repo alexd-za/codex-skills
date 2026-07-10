@@ -1,0 +1,151 @@
+ering review.
++Those require Fusion MCP evidence, engineering calculation, simulation, slicer inspection, physical testing, or human review.
+diff --git a/skills/fusion-cad-guardian/SKILL.md b/skills/fusion-cad-guardian/SKILL.md
+index 121f819..8fdc47d 100644
+--- a/skills/fusion-cad-guardian/SKILL.md
++++ b/skills/fusion-cad-guardian/SKILL.md
+@@ -1,42 +1,39 @@
+ ---
+ name: fusion-cad-guardian
+-description: Work alongside Autodesk Fusion MCP as a verification and acceptance layer. Use to profile the connected MCP's real capabilities, turn CAD requests into testable single-part or multi-part contracts, track Fusion and engineering evidence, prove export provenance, safely audit STL meshes under resource limits, compare revisions, and issue PASS, CONDITIONAL_PASS, INCOMPLETE, or FAIL. Never use this skill to replace Fusion MCP or perform live CAD editing.
++description: Verify Autodesk Fusion work alongside a connected Fusion MCP. Use for capability-aware CAD plans, evidence-led acceptance criteria, STL/3MF audits, G-code metadata evidence, export provenance, multi-part gates, regression reports, and integrity bundles. Never use it to edit the live Fusion model or replace Fusion MCP.
+ ---
+ 
+-# Fusion CAD Guardian 2.1
++# Fusion CAD Guardian 2.2
+ 
+-Fusion CAD Guardian is the **planning, evidence, exported-mesh, and acceptance layer** around a connected Fusion MCP server.
++Guardian is the **planning, evidence, exported-file, and acceptance layer** around Fusion MCP.
+ 
+-- **Fusion MCP owns the live design:** inspect, create, edit, measure, save checkpoints, test joints, check interference, and export.
+-- **Guardian owns verification discipline:** contracts, capability routing, evidence ledgers, export identity, deterministic STL analysis, regression comparison, and the final gate.
++- **Fusion MCP owns the live design:** inspect, create, edit, measure, checkpoint, test joints, check interference, and export.
++- **Guardian owns verification discipline:** contracts, capability routing, evidence, provenance, STL/3MF analysis, optional G-code metadata, regression comparison, reports, bundles, and the final gate.
+ 
+-Guardian runs dependency-free Python outside Fusion. It does not install an add-in, invoke Fusion APIs, or execute arbitrary Python inside Fusion.
++Guardian runs standard-library Python outside Fusion. It does not install an add-in, call Fusion APIs, execute arbitrary Python inside Fusion, or launch a slicer.
+ 
+-## Absolute boundary
++## Non-negotiable boundary
+ 
+ | Operation | Owner |
+ |---|---|
+-| Create or modify Fusion geometry | Fusion MCP |
+-| Inspect live components, features, parameters, joints, or interference | Fusion MCP |
++| Modify or inspect live Fusion geometry | Fusion MCP |
+ | Save/version/checkpoint the design | Fusion MCP |
+-| Export the intended body or component | Fusion MCP, or an explicitly recorded manual Fusion export |
+-| Discover and record which MCP capabilities exist | Guardian profile, based on actual MCP inspection |
+-| Define measurable acceptance criteria | Guardian contract |
+-| Track evidence and unresolved claims | Guardian evidence ledger |
+-| Audit exported STL topology and global geometry | Guardian auditor |
+-| Decide the final evidence-based verdict | Guardian gate |
++| Test joints and interference | Fusion MCP |
++| Export the intended body/component | Fusion MCP or an explicitly recorded manual Fusion export |
++| Define measurable requirements | Guardian contract |
++| Record verification evidence | Guardian evidence ledger |
++| Audit STL/core 3MF and existing G-code | Guardian scripts |
++| Issue the evidence-based verdict | Guardian gate |
+ 
+-Never route live CAD operations through Guardian. Never claim Guardian can compensate for a missing Fusion MCP operation.
++Never route live-CAD actions through Guardian. A missing MCP capability remains `BLOCKED`, `DISCOVERY_REQUIRED`, or an explicit manual/external step.
+ 
+ Read `references/capability-boundaries.md` before making claims near this boundary.
+ 
+-## Required operating sequence
++## Required workflow
+ 
+-### 1. Inspect and profile the connected Fusion MCP
++### 1. Inspect and profile the connected MCP
+ 
+-Discover the actual MCP tools. Do not assume names from documentation or another server.
+-
+-Create a capability profile:
++Discover the actual tools. Do not assume tool names from documentation or another server.
+ 
+ ```powershell
+ py -3 "<skill-dir>\scripts\guardian.py" capabilities-init `
+@@ -44,36 +41,17 @@ py -3 "<skill-dir>\scripts\guardian.py" capabilities-init `
+   --server-name "Autodesk Fusion MCP"
+ ```
+ 
+-For each observed capability, record the concrete tool or method:
++Mark a capability `available` only with a concrete tool or method:
+ 
+ ```powershell
+ py -3 "<skill-dir>\scripts\guardian.py" capabilities-set `
+-  "fusion-guardian\capabilities.json" export_stl available `
+-  --tool "<actual-tool-name>"
++  "fusion-guardian\capabilities.json" inspect_component_structure available `
++  --tool "<observed-tool-name>"
+ ```
+ 
+-Use only:
+-
+-- `available` when a concrete tool or method was observed;
+-- `unavailable` after inspecting the server and confirming it is absent;
+-- `unknown` when discovery is incomplete.
+-
+-An `available` capability requires a concrete tool or method. A server name is not evidence.
++Use `unknown` while discovery is incomplete and `unavailable` only after inspection confirms absence. Read `references/capability-profile.md`.
+ 
+-Read `references/capability-profile.md`.
+-
+-### 2. Create a contract before editing
+-
+-For a single output:
+-
+-```powershell
+-py -3 "<skill-dir>\scripts\guardian.py" init `
+-  --out "fusion-guardian\contract.json" `
+-  --part-name "Camera Bracket" `
+-  --task-type part
+-```
+-
+-For a multi-part design or assembly:
++### 2. Create the contract before editing
+ 
+ ```powershell
+ py -3 "<skill-dir>\scripts\guardian.py" project "fusion-guardian" `
+@@ -85,17 +63,16 @@ py -3 "<skill-dir>\scripts\guardian.py" project "fusion-guardian" `
+ 
+ The contract must separate:
+ 
+-- Fusion live-model requirements;
++- live Fusion requirements;
+ - assembly/mechanism requirements;
+ - per-part exported-mesh requirements;
+-- external engineering, calculation, slicer, simulation, or physical-test requirements;
+-- explicit resource limits for mesh inputs.
++- optional slicer metadata requirements;
++- external engineering, simulation, physical-test, and human-review requirements;
++- resource limits for untrusted inputs.
+ 
+-Do not silently invent critical dimensions, loads, materials, fits, or safety factors. State assumptions.
++Do not invent critical dimensions, loads, materials, fits, or safety factors. State assumptions. Read `references/design-contract.md` and `references/multi-part.md`.
+ 
+-Read `references/design-contract.md` and `references/multi-part.md`.
+-
+-### 3. Generate a capability-aware verification plan
++### 3. Generate the capability-aware plan
+ 
+ ```powershell
+ py -3 "<skill-dir>\scripts\guardian.py" plan `
+@@ -104,29 +81,15 @@ py -3 "<skill-dir>\scripts\guardian.py" plan `
+   --json "fusion-guardian\plan.json"
+ ```
+ 
+-Interpret readiness:
+-
+-- `READY`: required mapped capabilities are available;
+-- `DISCOVERY_REQUIRED`: inspect more MCP tools before proceeding;
+-- `BLOCKED`: a required live-model capability is explicitly unavailable.
++Interpret `READY`, `DISCOVERY_REQUIRED`, and `BLOCKED` literally. Do not bypass a blocker with another bridge or generated Fusion Python.
+ 
+-A blocked plan does not authorize a different bridge or arbitrary Fusion Python. Use an explicit manual Fusion step when acceptable, or keep the requirement unresolved.
++### 4. Checkpoint, build, and inspect through Fusion MCP
+ 
+-### 4. Preserve the original design
++Before material edits, create a recoverable checkpoint. Use Fusion MCP for every live-model operation. Prefer named parameters, descriptive components/bodies/features, separate physical components, and constrained sketches.
+ 
+-Before material edits, use Fusion MCP to create a recoverable save, version, 
