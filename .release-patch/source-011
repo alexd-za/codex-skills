@@ -1,0 +1,160 @@
+nts": [],
++        "slicer": {},
+         "notes": ["Replace placeholder mesh dimensions with this part's actual acceptance criteria."],
+     }
+ 
+@@ -117,7 +126,7 @@ def default_contract(
+     contract: dict[str, Any] = {
+         "$schema": CONTRACT_SCHEMA_URI,
+         "schema_version": 2,
+-        "schema_revision": "2.1",
++        "schema_revision": "2.2",
+         "part_name": part_name,
+         "task_type": task_type,
+         "units": "mm",
+@@ -128,10 +137,12 @@ def default_contract(
+         "assembly_requirements": [],
+         "export_provenance_required": True,
+         "resource_limits": DEFAULT_RESOURCE_LIMITS.to_dict(),
++        "slicer": {},
+         "notes": [
+             "Replace example dimensions with actual acceptance criteria.",
+             "Mesh checks do not verify wall thickness, joints, strength, or local feature tolerances.",
+             "When parts is non-empty, audit each export with --part-id.",
++            "Use optional slicer criteria only with a source-mesh-linked G-code report.",
+         ],
+     }
+     if parts:
+@@ -248,6 +259,43 @@ def _validate_mesh(mesh: Any, *, name: str = "mesh") -> dict[str, Any]:
+     return mesh
+ 
+ 
++def _validate_slicer(value: Any, *, name: str = "slicer") -> dict[str, Any]:
++    if not isinstance(value, dict):
++        raise GuardianError(f"{name} must be an object")
++    unknown = set(value) - SLICER_KEYS
++    if unknown:
++        raise GuardianError(f"unknown {name} fields: {sorted(unknown)}")
++    if "required" in value and not isinstance(value["required"], bool):
++        raise GuardianError(f"{name}.required must be boolean")
++    if "require_source_mesh_hash" in value and not isinstance(value["require_source_mesh_hash"], bool):
++        raise GuardianError(f"{name}.require_source_mesh_hash must be boolean")
++    fields = value.get("required_metadata_fields", [])
++    if not isinstance(fields, list) or any(not isinstance(item, str) or not item for item in fields):
++        raise GuardianError(f"{name}.required_metadata_fields must be an array of strings")
++    allowed_fields = {
++        "generator", "estimated_print_time_seconds", "filament_used_mm", "filament_used_cm3",
++        "filament_used_g", "layer_count", "layer_height_mm", "first_layer_height_mm",
++        "nozzle_diameters_mm", "max_z_mm",
++    }
++    unknown_fields = set(fields) - allowed_fields
++    if unknown_fields:
++        raise GuardianError(f"{name}.required_metadata_fields has unknown values: {sorted(unknown_fields)}")
++    for key in (
++        "print_time_seconds", "filament_mm", "filament_cm3", "filament_g", "layer_count",
++        "layer_height_mm", "first_layer_height_mm", "max_z_mm",
++    ):
++        if key in value:
++            _validate_range(value[key], f"{name}.{key}")
++    if "allowed_nozzle_diameters_mm" in value:
++        nozzles = value["allowed_nozzle_diameters_mm"]
++        if not isinstance(nozzles, list) or not nozzles:
++            raise GuardianError(f"{name}.allowed_nozzle_diameters_mm must be a non-empty array")
++        for item in nozzles:
++            if not isinstance(item, (int, float)) or isinstance(item, bool) or float(item) <= 0:
++                raise GuardianError(f"{name}.allowed_nozzle_diameters_mm values must be positive numbers")
++    return value
++
++
+ def _validate_parts(parts: Any) -> list[dict[str, Any]]:
+     if not isinstance(parts, list):
+         raise GuardianError("parts must be an array")
+@@ -269,6 +317,7 @@ def _validate_parts(parts: Any) -> list[dict[str, Any]]:
+         _validate_mesh(part.get("mesh", {}), name=f"parts[{index}].mesh")
+         _validate_requirements(part.get("fusion_requirements", []), f"parts[{index}].fusion_requirements")
+         _validate_requirements(part.get("engineering_requirements", []), f"parts[{index}].engineering_requirements")
++        _validate_slicer(part.get("slicer", {}), name=f"parts[{index}].slicer")
+         notes = part.get("notes", [])
+         if not isinstance(notes, list) or any(not isinstance(note, str) for note in notes):
+             raise GuardianError(f"parts[{index}].notes must be an array of strings")
+@@ -320,6 +369,7 @@ def validate_contract(contract: Any) -> dict[str, Any]:
+     if not isinstance(contract.get("export_provenance_required", True), bool):
+         raise GuardianError("export_provenance_required must be boolean")
+     limits_from_mapping(contract.get("resource_limits"), base=DEFAULT_RESOURCE_LIMITS)
++    _validate_slicer(contract.get("slicer", {}))
+     notes = contract.get("notes", [])
+     if not isinstance(notes, list) or any(not isinstance(note, str) for note in notes):
+         raise GuardianError("contract notes must be an array of strings")
+@@ -353,6 +403,24 @@ def resolve_mesh_contract(contract: dict[str, Any], part_id: str | None = None)
+     return contract.get("mesh", {}), None, contract.get("part_name", "")
+ 
+ 
++def resolve_slicer_contract(contract: dict[str, Any], part_id: str | None = None) -> tuple[dict[str, Any], str | None]:
++    contract = validate_contract(contract)
++    if contract.get("schema_version", 1) != 2:
++        return {}, None
++    parts = contract.get("parts", [])
++    if parts:
++        if part_id is None:
++            if len(parts) != 1:
++                raise GuardianError("contract contains multiple parts; slicer report requires --part-id")
++            part = parts[0]
++        else:
++            part = get_part(contract, part_id)
++        return part.get("slicer", {}), part["id"]
++    if part_id is not None:
++        raise GuardianError("--part-id was provided but contract has no parts")
++    return contract.get("slicer", {}), None
++
++
+ def mesh_contract(contract: dict[str, Any]) -> dict[str, Any]:
+     mesh, _part_id, _name = resolve_mesh_contract(contract)
+     return mesh
+diff --git a/skills/fusion-cad-guardian/scripts/guardian_lib/evidence.py b/skills/fusion-cad-guardian/scripts/guardian_lib/evidence.py
+index 70578d6..67b9c81 100644
+--- a/skills/fusion-cad-guardian/scripts/guardian_lib/evidence.py
++++ b/skills/fusion-cad-guardian/scripts/guardian_lib/evidence.py
+@@ -272,11 +272,13 @@ def gate(
+     contract: dict[str, Any],
+     evidence: dict[str, Any],
+     mesh_reports: list[dict[str, Any]],
++    slicer_reports: list[dict[str, Any]] | None = None,
+     *,
+     expected_contract_sha256: str | None = None,
+ ) -> dict[str, Any]:
+     contract = validate_contract(contract)
+     evidence = validate_evidence(evidence)
++    slicer_reports = slicer_reports or []
+     evidence_result = evaluate_evidence(contract, evidence)
+     provenance = verify_export_provenance(contract, evidence, mesh_reports)
+ 
+@@ -289,9 +291,14 @@ def gate(
+     missing_parts = sorted(required_parts - reported_parts)
+ 
+     mesh_validation: list[dict[str, Any]] = []
++    mesh_hashes_by_part: dict[str | None, set[str]] = {}
+     for report in mesh_reports:
+         verdict = report.get("verdict")
+         report_contract_hash = report.get("contract", {}).get("sha256")
++        report_part = report.get("contract", {}).get("part_id")
++        report_hash = report.get("mesh", {}).get("sha256")
++        if report_hash:
++            mesh_hashes_by_part.setdefault(report_part, set()).add(str(report_hash).lower())
+         if verdict == "FAIL":
+             status, reason = "FAIL", "mesh contract checks failed"
+         elif verdict != "PASS":
+@@ -302,20 +309,87 @@ def gate(
+             status, reason = "PASS", "mesh report passed and is linked to the current contract"
+         mesh_validation.append({
+             "path": report.get("mesh", {}).get("path"),
+-            "part_id": report.get("contract", {}).get("part_id"),
+-            "sha256": report.get("mesh", {}).get("sha256"),
++            "part_id": report_part,
++            "sha256": report_hash,
+             "verdict": verdict,
+             "contract_sha256": report_contract_hash,
+             "status": status,
+             "reason": reason,
+         })
+ 
+-    if any(item["status"] == "FAIL" for item in mesh_validation) or evidence_resul
