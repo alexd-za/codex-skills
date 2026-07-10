@@ -1,0 +1,49 @@
+   tool=args.tool or "", method=args.method or "", notes=args.notes or "",
+     )
+     output = Path(args.out) if args.out else path
+     write_json(output, profile)
+@@ -166,6 +179,8 @@ def _cmd_validate(args: argparse.Namespace) -> int:
+         "evidence": validate_evidence,
+         "capabilities": validate_capability_profile,
+         "audit-report": validate_audit_report,
++        "slicer-report": validate_slicer_report,
++        "bundle-manifest": validate_bundle_manifest,
+     }
+     validators[args.kind](data)
+     print(json.dumps({"valid": True, "kind": args.kind, "path": str(path.resolve())}, indent=2))
+@@ -173,29 +188,46 @@ def _cmd_validate(args: argparse.Namespace) -> int:
+ 
+ 
+ def _cmd_audit(args: argparse.Namespace) -> int:
+-    report = audit_stl(
++    report = audit_mesh(
+         Path(args.mesh),
+         contract_path=Path(args.contract) if args.contract else None,
+         part_id=args.part_id,
++        object_id=args.object_id,
++        object_name=args.object_name,
+         weld_tolerance_mm=args.weld_tolerance,
+         area_epsilon_mm2=args.area_epsilon,
+         sliver_quality_threshold=args.sliver_quality_threshold,
+         resource_limits=_resource_limits(args),
+     )
++    _write_outputs(report, args, render_audit_markdown, render_audit_html)
++    print(json.dumps(report, indent=2, ensure_ascii=False))
++    return 1 if report["verdict"] == "FAIL" else 0
++
++
++def _cmd_inspect_3mf(args: argparse.Namespace) -> int:
++    result = inspect_3mf(Path(args.mesh), limits=_resource_limits(args))
+     if args.json_out:
+-        write_json(Path(args.json_out), report)
+-    if args.markdown:
+-        write_text(Path(args.markdown), render_audit_markdown(report))
++        write_json(Path(args.json_out), result)
++    print(json.dumps(result, indent=2, ensure_ascii=False))
++    return 0
++
++
++def _cmd_slicer_audit(args: argparse.Namespace) -> int:
++    report = build_slicer_report(
++        Path(args.gcode),
++        source_mesh_path=Path(args.source_mes
