@@ -18,8 +18,8 @@ jobs:
         run: |
           set -euo pipefail
           test -f .skill-payload/READY
-          test -f .skill-payload/v2.1.0.patch.part000
-          cat .skill-payload/v2.1.0.patch.part* > /tmp/fusion-cad-guardian-v2.1.0.patch
+          test -f .skill-payload/v2.1.0.source.part000
+          cat .skill-payload/v2.1.0.source.part* > /tmp/fusion-cad-guardian-v2.1.0.patch
           expected="$(tr -d '\r\n' < .skill-payload/READY)"
           actual="$(sha256sum /tmp/fusion-cad-guardian-v2.1.0.patch | awk '{print $1}')"
           test "$actual" = "$expected"
@@ -46,6 +46,8 @@ jobs:
           set -euo pipefail
           rm -rf .skill-payload
           rm -f .github/workflows/import-fusion-cad-guardian-v2.1.yml
+          find skills/fusion-cad-guardian -type d -name __pycache__ -prune -exec rm -rf {} +
+          find skills/fusion-cad-guardian -type f -name '*.pyc' -delete
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
