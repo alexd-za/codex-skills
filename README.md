@@ -1,41 +1,33 @@
-# Codex Skills
+# codex-skills
 
-Custom Codex skills, scripts, and reusable agent workflows maintained by Alex.
+Custom Codex skills, scripts, and reusable agent workflows.
 
 ## Available skills
 
-### Fusion CAD Guardian — v2.0.0
+### Fusion CAD Guardian — v2.1.0
 
-A verification and acceptance layer that works **alongside Autodesk Fusion MCP**.
+A verification and acceptance layer that works **alongside Autodesk Fusion MCP**. Fusion MCP remains responsible for every live CAD operation; Guardian adds design contracts, capability routing, evidence tracking, export provenance, multi-part completeness, deterministic STL auditing, resource limits, regression comparison, and final acceptance gates.
 
-Fusion MCP remains responsible for all live CAD creation, editing, inspection, motion, interference checks, checkpoints, and exports. Guardian adds:
-
-- measurable design contracts;
-- evidence ledgers for Fusion, engineering, simulation, slicer, and physical checks;
-- STL export provenance tied to Fusion document/checkpoint metadata and SHA-256;
-- deterministic STL audits;
-- before/after mesh-regression reports;
-- a final `PASS`, `CONDITIONAL_PASS`, `INCOMPLETE`, or `FAIL` acceptance gate.
-
-[View Fusion CAD Guardian](skills/fusion-cad-guardian/)
-
-## Install
-
-In Codex:
+Install with Codex:
 
 ```text
 $skill-installer install https://github.com/alexd-za/codex-skills/tree/main/skills/fusion-cad-guardian
 ```
 
-Restart Codex, then run:
+Then restart Codex and verify locally:
 
 ```powershell
 py -3 "$HOME\.agents\skills\fusion-cad-guardian\scripts\guardian.py" self-test
 ```
 
+[Open the skill directory](./skills/fusion-cad-guardian)
+
 ## Release history
 
-- **v1.0.0** — initial design-contract and STL-audit release.
-- **v2.0.0** — evidence ledger, export provenance, contract-linked reports, acceptance gate, improved mesh analysis, project scaffolding, and stricter Fusion-MCP capability boundaries.
+- **v2.1.0** — JSON Schemas, MCP capability profiles, resource limits, and first-class multi-part verification.
+- **v2.0.0** — evidence ledger, export provenance, enhanced mesh analysis, and acceptance gate.
+- **v1.0.0** — initial STL audit and design-contract workflow.
 
-See the skill's [changelog](skills/fusion-cad-guardian/CHANGELOG.md) for details.
+## Licence
+
+MIT

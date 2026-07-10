@@ -1,47 +1,48 @@
 {
+  "$schema": "https://raw.githubusercontent.com/alexd-za/codex-skills/main/skills/fusion-cad-guardian/schemas/evidence.schema.json",
   "schema_version": 1,
   "design": {
-    "document": "Rover Camera Bracket",
+    "document": "Rover Camera Mount Assembly",
     "checkpoint": "Version 7",
     "units": "mm",
-    "fusion_mcp_server": "Autodesk Fusion MCP"
+    "fusion_mcp_server": "Autodesk Fusion MCP",
+    "capability_profile": "capabilities.json"
   },
   "checks": [
     {
       "id": "active_document",
+      "part_id": "",
       "required": true,
       "status": "PASS",
-      "method": "Fusion MCP document inspection",
-      "evidence": "Active document reported as Rover Camera Bracket",
-      "source": "fusion_mcp"
+      "method": "Fusion MCP inspection",
+      "evidence": "Active document verified in Version 7",
+      "source": "fusion_mcp",
+      "timestamp": ""
     },
     {
-      "id": "safe_checkpoint",
+      "id": "camera_bracket.export_selection",
+      "part_id": "camera_bracket",
       "required": true,
-      "status": "PASS",
-      "method": "Fusion save/version operation",
-      "evidence": "Version 7 created before final edits",
-      "source": "fusion_mcp"
-    },
-    {
-      "id": "loads_reviewed",
-      "required": false,
       "status": "NOT_VERIFIED",
       "method": "",
       "evidence": "",
-      "source": "calculation"
+      "source": "fusion_mcp",
+      "timestamp": ""
     }
   ],
   "exports": [
     {
-      "mesh": "exports/rover-camera-bracket.stl",
+      "mesh": "exports/camera-bracket.stl",
       "mesh_sha256": "",
+      "part_id": "camera_bracket",
       "component": "Camera_Bracket",
       "body": "Bracket_Print_Body",
-      "document": "Rover Camera Bracket",
+      "document": "Rover Camera Mount Assembly",
       "checkpoint": "Version 7",
       "method": "Fusion MCP STL export in millimetres"
     }
   ],
-  "notes": ["Run evidence-hash after the STL is exported."]
+  "notes": [
+    "Populate this ledger only with evidence actually gathered through Fusion MCP, calculations, simulation, slicer review, physical testing, or human review."
+  ]
 }

@@ -1,0 +1,94 @@
+{
+  "$schema": "https://raw.githubusercontent.com/alexd-za/codex-skills/main/skills/fusion-cad-guardian/schemas/capability-profile.schema.json",
+  "schema_version": 1,
+  "server": {
+    "name": "Autodesk Fusion MCP",
+    "transport": "",
+    "endpoint": "",
+    "discovered_at": "2026-07-10T14:40:55+00:00"
+  },
+  "capabilities": {
+    "connect": {
+      "status": "available",
+      "tool": "fusion_health",
+      "method": "",
+      "notes": "Example tool name; replace with the actual connected server tool."
+    },
+    "inspect_active_document": {
+      "status": "available",
+      "tool": "fusion_document_info",
+      "method": "",
+      "notes": "Example tool name; replace with the actual connected server tool."
+    },
+    "read_units": {
+      "status": "available",
+      "tool": "fusion_document_info",
+      "method": "",
+      "notes": "Example tool name; replace with the actual connected server tool."
+    },
+    "save_checkpoint": {
+      "status": "unknown",
+      "tool": "",
+      "method": "",
+      "notes": ""
+    },
+    "inspect_component_structure": {
+      "status": "available",
+      "tool": "fusion_list_components",
+      "method": "",
+      "notes": "Example tool name; replace with the actual connected server tool."
+    },
+    "read_parameters": {
+      "status": "available",
+      "tool": "fusion_list_parameters",
+      "method": "",
+      "notes": "Example tool name; replace with the actual connected server tool."
+    },
+    "inspect_feature_health": {
+      "status": "unknown",
+      "tool": "",
+      "method": "",
+      "notes": ""
+    },
+    "measure_geometry": {
+      "status": "available",
+      "tool": "fusion_measure",
+      "method": "",
+      "notes": "Example tool name; replace with the actual connected server tool."
+    },
+    "query_mass_properties": {
+      "status": "unknown",
+      "tool": "",
+      "method": "",
+      "notes": ""
+    },
+    "test_joints": {
+      "status": "unknown",
+      "tool": "",
+      "method": "",
+      "notes": "Discover the actual server capability before claiming verification."
+    },
+    "check_interference": {
+      "status": "unknown",
+      "tool": "",
+      "method": "",
+      "notes": "Discover the actual server capability before claiming verification."
+    },
+    "export_stl": {
+      "status": "available",
+      "tool": "fusion_export_mesh",
+      "method": "",
+      "notes": "Example tool name; replace with the actual connected server tool."
+    },
+    "capture_viewport": {
+      "status": "unknown",
+      "tool": "",
+      "method": "",
+      "notes": ""
+    }
+  },
+  "notes": [
+    "Populate this profile only after inspecting the connected MCP server's actual tools.",
+    "Do not infer availability from the server name alone."
+  ]
+}

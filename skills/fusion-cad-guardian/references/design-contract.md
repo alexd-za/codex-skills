@@ -1,13 +1,16 @@
-# Design contract schema v2
+# Design contract schema v2.1
 
-A schema-v2 contract has four concerns:
+A current contract separates:
 
-- identity: `part_name`, `task_type`, and `units`;
-- `mesh`: deterministic STL criteria;
+- project identity: `part_name`, `task_type`, `units`;
+- one top-level `mesh` contract for a single output, or `parts[].mesh` for multiple outputs;
 - `fusion_requirements`: live-model evidence requirements;
-- `engineering_requirements`: calculation, simulation, slicer, physical-test, or human-review requirements.
+- `assembly_requirements`: cross-component or mechanism evidence;
+- `engineering_requirements`: calculation, simulation, slicer, physical-test, or human-review requirements;
+- `resource_limits`: input-safety limits that may only tighten runtime limits;
+- `export_provenance_required`: whether each report must match a recorded Fusion export.
 
-`export_provenance_required` should remain `true` for final acceptance.
+`schema_version` remains `2` for v2 compatibility. `schema_revision` is `2.1`.
 
 ## Range syntax
 
@@ -23,36 +26,38 @@ or:
 {"min": 19.9, "max": 20.1}
 ```
 
-## Mesh criteria
-
-Supported criteria include:
-
-- `expected_dimensions_mm`
-- `volume_mm3`
-- `surface_area_mm2`
-- `mass_g` with `density_g_cm3`
-- manifold and triangle-defect limits
-- `max_sliver_triangles`
-- `min_triangle_quality`
-- triangle count range
-- positive signed volume
-- `build_plate`
-- `orientation`
-
-Do not encode a local feature tolerance as an overall bounding-box dimension.
-
 ## Requirement semantics
-
-Each requirement contains:
 
 ```json
 {
   "id": "critical_parameters",
   "required": true,
+  "capability": "read_parameters",
   "description": "Mount spacing and fastener diameters verified in Fusion"
 }
 ```
 
-Use stable, unique IDs because the evidence ledger maps by ID.
+`capability` maps the requirement to the MCP capability profile. It is optional for engineering requirements that do not belong to Fusion MCP.
 
-Schema-v1 mesh contracts remain accepted for backwards compatibility, but they cannot express Fusion or engineering evidence and are not recommended for new work.
+## Multi-part semantics
+
+Each part contains:
+
+```json
+{
+  "id": "camera_bracket",
+  "name": "Camera Bracket",
+  "required": true,
+  "mesh": {},
+  "fusion_requirements": [],
+  "engineering_requirements": []
+}
+```
+
+Part IDs are stable machine identifiers and become evidence namespaces and export identities. See `multi-part.md`.
+
+## Mesh criteria
+
+Supported criteria include overall dimensions, volume, surface area, estimated mass, topology limits, triangle quality, build-plate contact, and orientation heuristics. Do not encode local feature tolerances as overall bounding-box dimensions.
+
+Schema-v1 mesh contracts remain accepted for backward compatibility, but they cannot express capability routing, multi-part identity, or live-model evidence.

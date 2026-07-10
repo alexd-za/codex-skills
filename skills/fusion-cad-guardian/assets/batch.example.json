@@ -2,11 +2,13 @@
   "jobs": [
     {
       "name": "camera-bracket",
+      "part_id": "camera_bracket",
       "mesh": "exports/camera-bracket.stl",
       "contract": "contract.json"
     },
     {
       "name": "sensor-cover",
+      "part_id": "sensor_cover",
       "mesh": "exports/sensor-cover.stl",
       "contract": "contract.json"
     }

@@ -36,6 +36,13 @@ jobs:
         run: python skills/fusion-cad-guardian/scripts/guardian.py validate contract skills/fusion-cad-guardian/assets/contract.example.json
       - name: Validate example evidence
         run: python skills/fusion-cad-guardian/scripts/guardian.py validate evidence skills/fusion-cad-guardian/assets/evidence.example.json
+      - name: Validate example capability profile
+        run: python skills/fusion-cad-guardian/scripts/guardian.py validate capabilities skills/fusion-cad-guardian/assets/capabilities.example.json
+      - name: JSON Schema conformance
+        shell: bash
+        run: |
+          python -m pip install "jsonschema>=4.23,<5"
+          python skills/fusion-cad-guardian/tests/schema_conformance.py
       - name: Test PowerShell wrapper
         if: runner.os == 'Windows'
         shell: pwsh

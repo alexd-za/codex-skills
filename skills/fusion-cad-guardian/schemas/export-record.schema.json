@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/alexd-za/codex-skills/main/skills/fusion-cad-guardian/schemas/export-record.schema.json",
+  "title": "Fusion CAD Guardian Export Record",
+  "type": "object",
+  "required": ["mesh","mesh_sha256","document","checkpoint","method"],
+  "additionalProperties": false,
+  "properties": {
+    "mesh": {"type":"string","minLength":1},
+    "mesh_sha256": {"type":"string","pattern":"^(?:|[0-9a-fA-F]{64})$"},
+    "part_id": {"type":"string","pattern":"^[A-Za-z][A-Za-z0-9_.-]*$"},
+    "component": {"type":"string"},
+    "body": {"type":"string"},
+    "document": {"type":"string","minLength":1},
+    "checkpoint": {"type":"string","minLength":1},
+    "method": {"type":"string","minLength":1}
+  },
+  "anyOf": [{"required":["component"]},{"required":["body"]}]
+}

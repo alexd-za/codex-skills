@@ -23,7 +23,25 @@ Use one of:
 
 Viewport appearance is not sufficient evidence for a dimensional, joint, interference, or manufacturing claim.
 
-## Good evidence
+## Multi-part evidence
+
+Part-specific requirement IDs are namespaced as `<part_id>.<requirement_id>`, for example:
+
+```json
+{
+  "id": "camera_bracket.critical_parameters",
+  "part_id": "camera_bracket",
+  "required": true,
+  "status": "PASS",
+  "method": "Fusion MCP parameter inspection",
+  "evidence": "Mount spacing 40.00 mm and M3 hole diameter 3.20 mm in checkpoint V7",
+  "source": "fusion_mcp"
+}
+```
+
+Every multi-part export record must carry the same `part_id` used by its audit report.
+
+## Good assembly evidence
 
 ```json
 {
@@ -31,7 +49,7 @@ Viewport appearance is not sufficient evidence for a dimensional, joint, interfe
   "required": true,
   "status": "PASS",
   "method": "Fusion MCP interference analysis at 0°, 30°, 60° and 90° joint positions",
-  "evidence": "No interference reported at all sampled positions; minimum observed clearance 2.1 mm",
+  "evidence": "No interference reported at sampled positions; minimum observed clearance 2.1 mm",
   "source": "fusion_mcp"
 }
 ```

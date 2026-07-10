@@ -2,21 +2,29 @@
 
 ## Always route to Fusion MCP
 
-- create, edit, suppress or delete CAD objects;
+Subject to the connected server's actual capability profile:
+
+- create, edit, suppress, or delete CAD objects;
 - inspect the live model;
 - save/version/checkpoint;
-- move joints and test representative positions;
+- move joints and inspect representative positions;
 - run interference analysis;
 - export final geometry.
 
 ## Always route to Guardian
 
-- create/validate contracts;
-- create/validate evidence ledgers;
+- create and validate contracts;
+- create and validate MCP capability profiles;
+- generate a verification routing plan;
+- create and validate evidence ledgers;
 - hash and bind exported meshes;
-- audit STL files;
+- audit STL files under explicit resource limits;
 - compare audit reports;
 - run the final acceptance gate.
+
+## Capability discovery
+
+Do not assume tool names. Inspect the connected MCP server, record concrete tools or methods in `capabilities.json`, then run `guardian.py plan`.
 
 ## Do not use Guardian as a fallback CAD controller
 

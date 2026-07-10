@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/alexd-za/codex-skills/main/skills/fusion-cad-guardian/schemas/evidence.schema.json",
+  "title": "Fusion CAD Guardian Evidence Ledger",
+  "type": "object",
+  "required": ["schema_version", "design", "checks", "exports", "notes"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {"type": "string"},
+    "schema_version": {"const": 1},
+    "design": {"type": "object", "additionalProperties": {"type": "string"}},
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "required", "status", "method", "evidence", "source"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "part_id": {"type": "string"},
+          "required": {"type": "boolean"},
+          "status": {"enum": ["PASS", "FAIL", "NOT_VERIFIED", "NOT_APPLICABLE"]},
+          "method": {"type": "string"},
+          "evidence": {"type": "string"},
+          "source": {"enum": ["fusion_mcp", "human_review", "calculation", "simulation", "physical_test", "slicer", "other"]},
+          "timestamp": {"type": "string"}
+        }
+      }
+    },
+    "exports": {"type": "array", "items": {"$ref": "export-record.schema.json"}},
+    "notes": {"type": "array", "items": {"type": "string"}}
+  }
+}

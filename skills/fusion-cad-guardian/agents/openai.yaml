@@ -1,4 +1,4 @@
 interface:
   display_name: "Fusion CAD Guardian"
-  short_description: "Verify Fusion MCP CAD with contracts, evidence, provenance, and STL gates"
-  default_prompt: "Use Fusion MCP for all live CAD operations, and use Fusion CAD Guardian to define acceptance criteria, collect evidence, verify exported meshes, and issue an evidence-based final verdict."
+  short_description: "Profile Fusion MCP and verify multi-part CAD exports with evidence gates"
+  default_prompt: "Use Fusion MCP as the sole live-CAD controller. Use Fusion CAD Guardian to profile the connected MCP capabilities, define single-part or multi-part acceptance criteria, collect evidence, verify export provenance, audit STL files under resource limits, and issue an evidence-based final verdict."
