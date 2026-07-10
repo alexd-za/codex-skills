@@ -1,67 +1,58 @@
-# Design contract
+# Design contract schema v2
 
-The contract is JSON and applies to one exported STL. Use one contract per printable part when acceptance criteria differ.
+A schema-v2 contract has four concerns:
 
-## Supported fields
+- identity: `part_name`, `task_type`, and `units`;
+- `mesh`: deterministic STL criteria;
+- `fusion_requirements`: live-model evidence requirements;
+- `engineering_requirements`: calculation, simulation, slicer, physical-test, or human-review requirements.
+
+`export_provenance_required` should remain `true` for final acceptance.
+
+## Range syntax
+
+Use either:
+
+```json
+{"target": 20.0, "tolerance": 0.1}
+```
+
+or:
+
+```json
+{"min": 19.9, "max": 20.1}
+```
+
+## Mesh criteria
+
+Supported criteria include:
+
+- `expected_dimensions_mm`
+- `volume_mm3`
+- `surface_area_mm2`
+- `mass_g` with `density_g_cm3`
+- manifold and triangle-defect limits
+- `max_sliver_triangles`
+- `min_triangle_quality`
+- triangle count range
+- positive signed volume
+- `build_plate`
+- `orientation`
+
+Do not encode a local feature tolerance as an overall bounding-box dimension.
+
+## Requirement semantics
+
+Each requirement contains:
 
 ```json
 {
-  "schema_version": 1,
-  "part_name": "Rover Camera Bracket",
-  "units": "mm",
-  "expected_dimensions_mm": {
-    "x": {"target": 80.0, "tolerance": 0.2},
-    "y": {"min": 39.8, "max": 40.2},
-    "z": {"target": 5.0, "tolerance": 0.1}
-  },
-  "volume_mm3": {"min": 1000, "max": 20000},
-  "surface_area_mm2": {"min": 100},
-  "require_watertight": true,
-  "max_shells": 1,
-  "max_boundary_edges": 0,
-  "max_nonmanifold_edges": 0,
-  "max_degenerate_triangles": 0,
-  "max_duplicate_triangles": 0,
-  "max_inconsistent_winding_edges": 0,
-  "min_triangles": 12,
-  "max_triangles": 2000000,
-  "require_positive_signed_volume": true,
-  "build_plate": {
-    "axis": "z",
-    "plane_mm": 0.0,
-    "tolerance_mm": 0.05,
-    "min_contact_vertices": 3
-  },
-  "notes": ["Export only the final printable body"]
+  "id": "critical_parameters",
+  "required": true,
+  "description": "Mount spacing and fastener diameters verified in Fusion"
 }
 ```
 
-## Range forms
+Use stable, unique IDs because the evidence ledger maps by ID.
 
-A numeric metric can use any of these forms:
-
-```json
-{"target": 10.0, "tolerance": 0.1}
-```
-
-```json
-{"min": 9.9, "max": 10.1}
-```
-
-```json
-{"min": 9.9}
-```
-
-```json
-{"max": 10.1}
-```
-
-For dimensions, the axis keys are `x`, `y`, and `z`.
-
-## Contract principles
-
-- Use tolerances that account for STL tessellation and export resolution.
-- A bounding box cannot prove the location of internal holes or interfaces.
-- Do not invent a volume range merely to obtain a pass.
-- Keep semantic Fusion requirements in the Fusion report, not in the STL contract.
-- Record uncertain values as assumptions and seek engineering confirmation before manufacture.
+Schema-v1 mesh contracts remain accepted for backwards compatibility, but they cannot express Fusion or engineering evidence and are not recommended for new work.

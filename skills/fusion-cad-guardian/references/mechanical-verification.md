@@ -1,52 +1,32 @@
-# Mechanical verification workflow
+# Mechanical verification
 
-Use this for assemblies and mechanisms.
+## Part checks
 
-## Define intent
+Use Fusion MCP to verify:
 
-Record:
+- named critical dimensions and parameters;
+- mounting-hole diameters and spacing;
+- body/component identity;
+- feature health;
+- intended export selection;
+- clearances that depend on local geometry.
 
-- fixed components;
-- moving components;
-- intended degrees of freedom;
-- rotation and translation axes;
-- motion limits;
-- driving component and driven component;
-- force or torque path;
-- required clearances;
-- forbidden contacts;
-- mounting interfaces;
-- fastener and bearing assumptions.
+Use Guardian only for export-level checks.
 
-## Verify in Fusion
+## Assembly and mechanism checks
 
-For each joint or relationship:
+At minimum:
 
-1. confirm component origins and orientation;
-2. confirm joint type;
-3. confirm axis and direction;
-4. confirm limits;
-5. inspect the neutral position;
-6. inspect both motion extremes;
-7. inspect at least one intermediate position;
-8. run interference checks at representative positions;
-9. confirm the intended parts remain connected;
-10. verify the driving relationship or motion link when applicable.
+1. verify component grounding and intended degrees of freedom;
+2. verify joint type, axis, orientation and limits;
+3. inspect neutral and both extreme positions;
+4. inspect representative intermediate positions;
+5. run interference at each sampled position;
+6. record minimum clearance where the MCP can measure it;
+7. identify collisions that could occur between samples as unresolved unless continuous analysis is available.
 
-## Evidence table
+STL reports cannot prove assembly motion or joint correctness.
 
-Use this form in the semantic report:
+## Engineering checks
 
-| Requirement | Method | Result | Evidence |
-|---|---|---|---|
-| Pinion rotates around shaft axis | Fusion joint inspection | PASS | Revolute joint `Pinion_Shaft`, Z axis |
-| Rack translates 50 mm | Joint limits and motion test | PASS | 0 to 50 mm slider range |
-| No hard interference | Interference at 0/25/50 mm | FAIL | Collision at 46.2 mm |
-| Printable rack mesh | STL audit | PASS | Mesh report path |
-
-## Do not conflate checks
-
-- Joint motion does not prove correct gear tooth geometry.
-- No interference at three sampled positions does not prove continuous collision-free motion.
-- A correct pitch relationship does not prove acceptable backlash after printing.
-- A valid STL does not prove that separate components are assembled correctly.
+Loads, material, servo torque, fastener capacity, fatigue, impact, thermal effects and safety factors require calculations, simulation, references, or physical tests. Record the method and evidence rather than inferring them from geometry.

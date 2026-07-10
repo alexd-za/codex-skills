@@ -1,36 +1,30 @@
 # MCP routing
 
-## Preferred tool split
+## Always route to Fusion MCP
 
-Use the Fusion MCP server for:
+- create, edit, suppress or delete CAD objects;
+- inspect the live model;
+- save/version/checkpoint;
+- move joints and test representative positions;
+- run interference analysis;
+- export final geometry.
 
-- live document state;
-- sketches, parameters, features, bodies, and components;
-- joints and assembly relationships;
-- interference and motion inspection;
-- save, version, and export operations.
+## Always route to Guardian
 
-Use the local Guardian scripts for:
+- create/validate contracts;
+- create/validate evidence ledgers;
+- hash and bind exported meshes;
+- audit STL files;
+- compare audit reports;
+- run the final acceptance gate.
 
-- deterministic STL topology checks;
-- dimension and volume acceptance ranges;
-- repeatable JSON and Markdown reports;
-- before/after regression comparison;
-- batch auditing of several exported parts.
+## Do not use Guardian as a fallback CAD controller
 
-## Tool discovery
+If Fusion MCP lacks a required live operation:
 
-MCP tool names and schemas may change. Before acting:
+1. state the missing capability;
+2. use a supported manual Fusion step when reasonable;
+3. record the manual method and evidence;
+4. otherwise mark the check `NOT_VERIFIED`.
 
-1. inspect connected MCP servers;
-2. identify the Fusion server;
-3. inspect its available tools;
-4. map the required operation to the current tool schema;
-5. avoid guessing unavailable operations.
-
-## Fallbacks
-
-- If no semantic inspection tool exists, mark that item `NOT VERIFIED`.
-- If no mesh export tool exists, request manual STL export.
-- If no interference tool exists, do not infer clearance from a screenshot.
-- If the active design cannot be safely duplicated, get explicit approval before modifying it.
+Do not silently install another Fusion bridge or execute arbitrary Fusion Python.

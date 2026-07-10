@@ -1,249 +1,307 @@
 ---
 name: fusion-cad-guardian
-description: Verify Autodesk Fusion CAD work created or modified through a Fusion MCP server. Use for mechanical parts, assemblies, rover components, 3D-printable models, dimensional acceptance criteria, interference and motion checks, STL mesh auditing, before/after regression checks, and evidence-based repair loops. Do not use as a replacement for the Fusion MCP server or claim that STL analysis verifies joints, interference, clearances, or wall thickness.
+description: Work alongside Autodesk Fusion MCP to turn CAD requests into testable design contracts, record evidence from the live Fusion model, verify export provenance, audit final STL meshes, compare revisions, and issue an evidence-based acceptance verdict. Use for mechanical parts, assemblies, rover components, 3D-printable models, dimensional acceptance criteria, joint and interference evidence, exported-mesh quality, or bounded repair loops. This skill never replaces Fusion MCP and never performs live CAD editing itself.
 ---
 
 # Fusion CAD Guardian
 
-Use this skill **alongside** an Autodesk Fusion MCP server. The MCP edits and inspects the live Fusion design. This skill adds what a generic MCP connection usually lacks:
+Fusion CAD Guardian is the **verification and acceptance layer** around a connected Autodesk Fusion MCP server.
 
-- a machine-readable design contract;
-- explicit pass/fail criteria before modeling starts;
-- a bounded create -> inspect -> repair loop;
-- deterministic offline auditing of exported STL files;
-- before/after mesh regression comparison;
-- a combined evidence report that separates verified facts from assumptions.
+- **Fusion MCP owns the live design:** create, edit, inspect, measure, move joints, check interference, save checkpoints, and export.
+- **Guardian owns the process evidence:** requirements, evidence ledger, export identity, deterministic STL checks, regression comparison, and final acceptance gate.
 
-The local auditor is dependency-free Python and runs outside Fusion. It never executes arbitrary Python inside Fusion.
+Never route live Fusion operations through Guardian. Guardian runs dependency-free local Python outside Fusion and does not install an add-in or execute Python inside Fusion.
 
-## Non-negotiable boundaries
+## Absolute capability boundary
 
-1. Use the official or user-selected Fusion MCP server for live CAD actions.
-2. Do not install another Fusion add-in unless the user explicitly requests it.
-3. Never claim a design passes because it looks correct in the viewport.
-4. Never claim STL analysis verifies:
-   - assembly interference;
-   - joint definitions or range of motion;
-   - component connectivity or fasteners;
-   - minimum wall thickness;
-   - manufacturing tolerances;
-   - structural strength.
-5. Verify those items in Fusion through available MCP tools or mark them `NOT VERIFIED`.
-6. Run mesh checks only on exported geometry that corresponds to the final candidate design.
-7. Preserve the user’s original document. Work in a new design, duplicate, version, or explicit checkpoint whenever Fusion supports it.
+| Task | Use |
+|---|---|
+| Create or modify sketches, bodies, features, components, parameters, joints | Fusion MCP |
+| Inspect active document, units, feature health, dimensions, component structure | Fusion MCP |
+| Test representative joint positions and interference | Fusion MCP |
+| Export the intended body/component | Fusion MCP, or one-time manual export when unavailable |
+| Define acceptance criteria | Guardian |
+| Track how each requirement was verified | Guardian evidence ledger |
+| Prove an audited STL is the recorded export | Guardian SHA-256 provenance |
+| Audit STL topology, dimensions, volume, mass estimate, triangle quality, orientation heuristics | Guardian |
+| Compare exported revisions for regressions | Guardian |
+| Decide PASS / CONDITIONAL_PASS / INCOMPLETE / FAIL from collected evidence | Guardian gate |
 
-Read `references/capability-boundaries.md` when deciding what can be proven.
+Read `references/capability-boundaries.md` before making claims near the boundary.
 
-## Required workflow
+## Required operating sequence
 
-### 1. Discover the live Fusion environment
+### 1. Inspect the connected Fusion MCP
 
-- Confirm a Fusion MCP server is connected.
-- Inspect the available MCP tools instead of assuming tool names.
-- Confirm the active document and design workspace.
-- Identify whether the task concerns a single part, multiple printable parts, or an assembly.
-- Record the units. Default to millimetres only when the user did not specify units.
+Discover the actual MCP tools. Do not assume tool names or capabilities.
 
-If Fusion or the MCP server is unavailable, stop live CAD work. You may still prepare a design contract or audit an existing STL.
+Confirm:
 
-### 2. Create the design contract before editing
+- Fusion is reachable;
+- the active document and design context;
+- the workspace and units;
+- whether the task is a single part, multiple printable parts, or an assembly;
+- whether the MCP can save/version, inspect parameters, test motion, check interference, and export STL.
 
-Translate the request into explicit requirements. Create a project-local file such as:
+If Fusion MCP is unavailable, Guardian may prepare a project or audit existing exports, but it must not imply that live-model checks occurred.
 
-```text
-fusion-guardian/<part-name>.contract.json
-```
+### 2. Create a Guardian project before editing
 
-Start from `assets/contract.example.json` or run:
+Use a project-local workspace:
 
 ```powershell
-py -3 "<skill-dir>\scripts\guardian.py" init --out "fusion-guardian\part.contract.json" --part-name "Part Name"
+py -3 "<skill-dir>\scripts\guardian.py" project "fusion-guardian" `
+  --name "Rover Camera Bracket" `
+  --task-type part
 ```
 
-Include only requirements supported by evidence. Distinguish:
+For an assembly, use `--task-type assembly`.
 
-- **Fusion semantic requirements**: components, sketches, parameters, joints, interference, motion, naming, feature structure.
-- **Mesh requirements**: exported dimensions, closed-manifold status, shell count, triangle defects, approximate volume and surface area.
-- **Human/mechanical requirements**: load cases, material choice, tolerances, safety factor, print orientation, fastener selection.
+The command creates:
 
-State assumptions before making geometry. Do not silently invent critical mechanical dimensions.
+```text
+fusion-guardian/
+├── TASK.md
+├── contract.json
+├── evidence.json
+├── batch.json
+├── exports/
+├── reports/
+└── snapshots/
+```
 
-Read `references/design-contract.md` for the schema and examples.
+### 3. Replace placeholders with a measurable contract
 
-### 3. Plan the model as testable phases
+Edit `contract.json` before making geometry.
 
-Break work into short phases. A typical sequence is:
+Separate requirements into:
 
-1. parameters and component structure;
-2. primary constrained sketches;
+1. **Fusion requirements** — facts available only from the live parametric design, such as named parameters, sketch constraints, feature health, component structure, joint axes/limits, representative motion, and interference.
+2. **Mesh requirements** — facts measurable from the exported STL, such as overall dimensions, manifoldness, shells, triangle defects, volume, estimated mass, build-plate contact, and orientation heuristics.
+3. **Engineering requirements** — material, loads, torque, safety factor, tolerances, shrinkage, fastening strategy, simulation, slicer review, and physical testing.
+
+Do not invent a critical mechanical requirement silently. Record assumptions in the contract notes.
+
+Validate the contract:
+
+```powershell
+py -3 "<skill-dir>\scripts\guardian.py" validate contract "fusion-guardian\contract.json"
+```
+
+Read `references/design-contract.md` for the schema.
+
+### 4. Preserve the original model
+
+Before significant edits, use Fusion MCP to create a safe checkpoint through a save, version, duplicate, or explicit copy. Record the method in `evidence.json` under `safe_checkpoint`.
+
+Do not continue destructive work without a recoverable state unless the user explicitly accepts that risk.
+
+### 5. Build and inspect through Fusion MCP
+
+Use short, testable phases:
+
+1. named parameters and component plan;
+2. constrained primary sketches;
 3. base features;
 4. interfaces, holes, clearances, and mounting geometry;
-5. joints or assembly relationships;
-6. semantic verification in Fusion;
-7. export and deterministic mesh verification.
+5. assembly relationships and joints;
+6. semantic inspection;
+7. export.
 
-For mechanisms, use `references/mechanical-verification.md`.
+After each phase, inspect before proceeding. Prefer local repairs over full regeneration.
 
-### 4. Build through Fusion MCP
+For assemblies, read `references/mechanical-verification.md` and sample neutral, extreme, and representative intermediate positions. A mechanism is not verified merely because its components exist.
 
-For each phase:
+### 6. Populate the evidence ledger
 
-- perform only the planned changes;
-- use named parameters where practical;
-- use separate components for separate physical parts;
-- use descriptive feature, sketch, body, and component names;
-- prefer fully constrained sketches;
-- inspect the result before proceeding;
-- record failures instead of masking them with unrelated geometry.
+Every Fusion or engineering requirement must have one of:
 
-Do not use an unrestricted Python-execution bridge merely because it is easier. Use it only if the user explicitly chose that architecture and approves the script.
+- `PASS`
+- `FAIL`
+- `NOT_VERIFIED`
+- `NOT_APPLICABLE`
 
-### 5. Run semantic checks inside Fusion
+A `PASS` or `FAIL` must include:
 
-Use the available MCP tools to verify the live design. At minimum, check every applicable item:
+- the method used;
+- concrete evidence;
+- a source such as `fusion_mcp`, `calculation`, `simulation`, `slicer`, `physical_test`, or `human_review`.
 
-- expected component and body counts;
-- expected component/body names;
-- critical dimensions and named parameters;
-- sketch constraint status;
-- feature health and timeline errors;
-- component relationships;
-- joint type, axis, limits, and range of motion;
-- interference over representative motion positions;
-- clearances at critical interfaces;
-- intended connection between parts;
-- export selection matches the intended printable body/component.
+A required check marked `NOT_APPLICABLE` is treated as incomplete; remove or make the requirement optional instead of bypassing it.
 
-Save a concise semantic report, for example:
+Validate the ledger:
 
-```text
-fusion-guardian/<part-name>.fusion-report.md
+```powershell
+py -3 "<skill-dir>\scripts\guardian.py" validate evidence "fusion-guardian\evidence.json"
 ```
 
-Use the statuses `PASS`, `FAIL`, `NOT VERIFIED`, and `NOT APPLICABLE`.
+Read `references/evidence-ledger.md`.
 
-### 6. Export final candidates
+### 7. Export and record provenance
 
-Export each final printable part or body to STL in millimetres, preferably with a descriptive filename:
+Export only the intended final candidate body/component into `exports/`. Use descriptive file names and millimetres.
 
-```text
-fusion-guardian/exports/<component-name>.stl
+For each export, add an entry to `evidence.json` containing:
+
+- mesh path;
+- component or body;
+- Fusion document;
+- checkpoint/version;
+- export method.
+
+Then populate hashes:
+
+```powershell
+py -3 "<skill-dir>\scripts\guardian.py" evidence-hash "fusion-guardian\evidence.json"
 ```
 
-Use an MCP export tool when available. If the current MCP server cannot export meshes, explain the limitation and request a one-time manual STL export. Do not pretend the local auditor can read `.f3d` files.
+Guardian will not accept an audited mesh as the Fusion export unless its SHA-256 matches a complete provenance record.
 
-### 7. Run deterministic mesh audit
-
-Run:
+### 8. Audit every final STL
 
 ```powershell
 py -3 "<skill-dir>\scripts\guardian.py" audit `
-  "fusion-guardian\exports\part.stl" `
-  --contract "fusion-guardian\part.contract.json" `
-  --json "fusion-guardian\part.mesh-report.json" `
-  --markdown "fusion-guardian\part.mesh-report.md"
+  "fusion-guardian\exports\camera-bracket.stl" `
+  --contract "fusion-guardian\contract.json" `
+  --json "fusion-guardian\reports\camera-bracket.mesh.json" `
+  --markdown "fusion-guardian\reports\camera-bracket.mesh.md"
 ```
 
-The auditor checks:
+The audit checks configured criteria including:
 
-- STL format and file hash;
 - bounding-box dimensions;
-- triangle and unique-vertex counts;
-- degenerate and duplicate triangles;
+- closed-manifold indicators;
 - boundary and non-manifold edges;
-- inconsistent winding edges;
-- edge-connected shell count;
-- signed volume and surface area;
-- optional build-plane contact criteria;
-- explicit contract ranges and tolerances.
+- shells;
+- degenerate, duplicate, and inconsistent-winding triangles;
+- sliver count and triangle quality;
+- surface area and signed/absolute volume;
+- uniform-density centre of mass;
+- optional mass estimate from density;
+- optional build-plate contact;
+- optional severe downward-facing area heuristic.
 
-Treat the command exit code as authoritative:
+The report embeds both the STL SHA-256 and the contract SHA-256.
 
-- `0`: audit completed and contract passed, or audit-only mode completed;
-- `1`: contract failed or batch contained failures;
-- `2`: input, schema, or execution error.
+An audit without `--contract` is `AUDIT_ONLY` and cannot satisfy the final gate.
 
-### 8. Compare revisions when repairing
+### 9. Compare risky revisions
 
-Before a risky change, audit the current exported STL. After the change, audit again and run:
+Audit before and after exports, then run:
 
 ```powershell
 py -3 "<skill-dir>\scripts\guardian.py" compare `
-  "fusion-guardian\before.mesh-report.json" `
-  "fusion-guardian\after.mesh-report.json" `
-  --json "fusion-guardian\regression.json" `
-  --markdown "fusion-guardian\regression.md"
+  "fusion-guardian\reports\before.mesh.json" `
+  "fusion-guardian\reports\after.mesh.json" `
+  --json "fusion-guardian\reports\regression.json" `
+  --markdown "fusion-guardian\reports\regression.md"
 ```
 
-Review regressions in manifoldness, shell count, defects, dimensions, volume, and contract verdict.
+Treat increased boundary edges, non-manifold edges, shells, degenerates, duplicates, winding errors, or slivers as regressions unless explicitly justified.
 
-### 9. Repair with a bounded loop
+### 10. Run the acceptance gate
 
-Use at most three automatic repair iterations unless the user requests more.
+```powershell
+py -3 "<skill-dir>\scripts\guardian.py" gate `
+  --contract "fusion-guardian\contract.json" `
+  --evidence "fusion-guardian\evidence.json" `
+  --mesh-report "fusion-guardian\reports\camera-bracket.mesh.json" `
+  --json "fusion-guardian\reports\acceptance.json" `
+  --markdown "fusion-guardian\reports\acceptance.md"
+```
+
+Repeat `--mesh-report` for multiple exported parts.
+
+Gate meanings:
+
+- `PASS` — all required live-model evidence passes, every mesh report passes the current contract, export provenance matches, and no optional engineering checks remain open.
+- `CONDITIONAL_PASS` — all required automated/live checks pass, but optional engineering or physical checks remain open.
+- `INCOMPLETE` — required evidence, current-contract mesh reports, or export provenance is missing.
+- `FAIL` — at least one required evidence item or mesh contract check fails.
+
+Read `references/acceptance-gate.md`.
+
+## Repair policy
+
+Use at most three autonomous repair iterations unless the user asks for more.
 
 For each iteration:
 
-1. identify the smallest failed requirement;
-2. modify only the relevant Fusion features;
-3. rerun the corresponding Fusion semantic check;
-4. re-export the affected STL;
-5. rerun the mesh audit;
-6. compare against the previous report;
-7. stop when the design passes or when the same failure repeats twice.
+1. select the smallest failed requirement;
+2. change only the relevant Fusion features through MCP;
+3. rerun the applicable live-model check;
+4. update evidence;
+5. re-export the affected body/component;
+6. repopulate export hashes;
+7. rerun its mesh audit;
+8. compare against the previous export;
+9. rerun the gate.
 
-Do not repeatedly regenerate the full model when a local repair is possible.
+Stop when:
 
-### 10. Produce the final evidence report
+- the gate passes;
+- the same failure repeats twice;
+- a required operation is unavailable;
+- the fix requires an unapproved engineering assumption;
+- further modification risks the original design.
 
-The final response must include:
+## Claim discipline
 
-- design/document examined;
-- requirements and assumptions;
-- Fusion semantic checks with statuses;
-- mesh-audit verdict and report paths;
-- before/after regressions if applicable;
-- remaining `NOT VERIFIED` items;
-- exact reasons for any failure;
-- recommended human checks before manufacturing or competition use.
+Never claim that Guardian proves:
 
-Overall status rules:
+- minimum wall thickness;
+- local hole position or fit tolerances;
+- continuous collision-free motion;
+- structural strength or safety factor;
+- material suitability;
+- print shrinkage or dimensional accuracy;
+- slicer support requirements;
+- competition rules compliance.
 
-- `PASS`: all required Fusion semantic checks pass and all required mesh checks pass.
-- `CONDITIONAL PASS`: automated checks pass, but material, load, tolerance, or other human engineering checks remain.
-- `FAIL`: at least one required check fails.
-- `INCOMPLETE`: required evidence could not be collected.
+These require Fusion inspection, measurement, simulation, calculations, slicer analysis, physical testing, or human review. Record them as evidence when actually performed; otherwise keep them `NOT_VERIFIED`.
 
-## Local auditor commands
+## Final response format
+
+Report:
+
+1. document and checkpoint examined;
+2. contract and assumptions;
+3. Fusion MCP checks and evidence;
+4. exported files and matching hashes;
+5. mesh audit results;
+6. regressions and repairs;
+7. acceptance-gate verdict;
+8. all remaining unverified or optional engineering items.
+
+Never collapse `CONDITIONAL_PASS` or `INCOMPLETE` into “done.”
+
+## Commands
 
 ```powershell
-# Create a contract template
-py -3 "<skill-dir>\scripts\guardian.py" init --out contract.json --part-name "Bracket"
+# Create a project
+py -3 "<skill-dir>\scripts\guardian.py" project project-dir --name "Part" --task-type part
 
-# Audit one STL
+# Create only a contract
+py -3 "<skill-dir>\scripts\guardian.py" init --out contract.json --part-name "Part"
+
+# Create an evidence ledger from an existing contract
+py -3 "<skill-dir>\scripts\guardian.py" evidence-init --contract contract.json --out evidence.json
+
+# Populate export hashes
+py -3 "<skill-dir>\scripts\guardian.py" evidence-hash evidence.json
+
+# Validate JSON
+py -3 "<skill-dir>\scripts\guardian.py" validate contract contract.json
+py -3 "<skill-dir>\scripts\guardian.py" validate evidence evidence.json
+
+# Audit, compare, batch, and gate
 py -3 "<skill-dir>\scripts\guardian.py" audit part.stl --contract contract.json
-
-# Audit and write reports
-py -3 "<skill-dir>\scripts\guardian.py" audit part.stl --contract contract.json --json report.json --markdown report.md
-
-# Compare two JSON reports
-py -3 "<skill-dir>\scripts\guardian.py" compare before.json after.json --markdown comparison.md
-
-# Audit several parts from a manifest
+py -3 "<skill-dir>\scripts\guardian.py" compare before.json after.json
 py -3 "<skill-dir>\scripts\guardian.py" batch batch.json --out-dir reports
+py -3 "<skill-dir>\scripts\guardian.py" gate --contract contract.json --evidence evidence.json --mesh-report report.json
 
-# Verify the installed scripts
+# Installation health check
 py -3 "<skill-dir>\scripts\guardian.py" self-test
 ```
 
-On Windows, `scripts/guardian.ps1` is a convenience wrapper that locates `py -3` or `python`.
-
-## Reporting discipline
-
-Always separate:
-
-- **Observed through Fusion MCP**
-- **Measured from exported mesh**
-- **Inferred**
-- **Not verified**
-
-A screenshot is evidence of appearance, not mechanical function. A closed STL is evidence of mesh topology, not structural adequacy. A moving joint is evidence of configured motion, not proof that a manufactured mechanism will work under load.
+On Windows, `scripts/guardian.ps1` locates `py -3` or `python` and forwards arguments.

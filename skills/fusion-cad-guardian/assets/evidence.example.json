@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "design": {
+    "document": "Rover Camera Bracket",
+    "checkpoint": "Version 7",
+    "units": "mm",
+    "fusion_mcp_server": "Autodesk Fusion MCP"
+  },
+  "checks": [
+    {
+      "id": "active_document",
+      "required": true,
+      "status": "PASS",
+      "method": "Fusion MCP document inspection",
+      "evidence": "Active document reported as Rover Camera Bracket",
+      "source": "fusion_mcp"
+    },
+    {
+      "id": "safe_checkpoint",
+      "required": true,
+      "status": "PASS",
+      "method": "Fusion save/version operation",
+      "evidence": "Version 7 created before final edits",
+      "source": "fusion_mcp"
+    },
+    {
+      "id": "loads_reviewed",
+      "required": false,
+      "status": "NOT_VERIFIED",
+      "method": "",
+      "evidence": "",
+      "source": "calculation"
+    }
+  ],
+  "exports": [
+    {
+      "mesh": "exports/rover-camera-bracket.stl",
+      "mesh_sha256": "",
+      "component": "Camera_Bracket",
+      "body": "Bracket_Print_Body",
+      "document": "Rover Camera Bracket",
+      "checkpoint": "Version 7",
+      "method": "Fusion MCP STL export in millimetres"
+    }
+  ],
+  "notes": ["Run evidence-hash after the STL is exported."]
+}

@@ -1,53 +1,45 @@
 # Capability boundaries
 
-## What the Fusion MCP can potentially verify
+## Fusion MCP can establish
 
-Exact availability depends on the connected server and Fusion version. Inspect the live tool list.
-
-Typical semantic checks include:
+Subject to the tools actually exposed by the connected server:
 
 - active document and design context;
-- feature, sketch, body, and component structure;
-- parameter values and dimensions;
-- sketch constraints;
-- joints, axes, and limits;
-- interference and clearance inspection;
-- feature failures;
-- exports and document saves.
+- named parameters and critical dimensions;
+- component, body, sketch and feature structure;
+- sketch constraint state;
+- feature/timeline health;
+- joint type, axis, limits and sampled positions;
+- interference and clearance at inspected positions;
+- selected export body/component;
+- save/version/checkpoint identity.
 
-Do not assume every server exposes every operation.
+Record these results in the evidence ledger.
 
-## What the local STL auditor verifies
+## Guardian can establish from STL
 
-The included auditor deterministically measures the exported triangulated mesh:
-
-- bounding-box dimensions;
+- file identity and size;
+- overall axis-aligned dimensions;
+- topology indicators;
+- edge-connected shells;
+- triangle defects and quality;
 - surface area;
-- signed enclosed volume estimate;
-- boundary edges;
-- non-manifold edges;
-- degenerate triangles;
-- duplicate triangles;
-- inconsistent shared-edge winding;
-- edge-connected shell count;
-- triangle count and unique vertices;
-- file hash for traceability;
-- contract ranges and tolerances.
+- signed and absolute enclosed volume;
+- uniform-density centre of mass when watertight;
+- estimated mass when density is supplied;
+- configured build-plane and orientation heuristics.
 
-## What neither layer proves automatically
+## Guardian cannot establish from STL
 
-Unless a specialised analysis is performed, do not claim verification of:
-
+- parametric intent or named dimensions;
+- component identity unless export provenance records it;
+- continuous collision-free motion;
+- joint definitions;
 - minimum wall thickness;
-- local clearances smaller than mesh tessellation error;
-- stress, strain, stiffness, fatigue, impact, or safety factor;
-- material suitability;
-- print shrinkage or dimensional compensation;
-- support requirements and slicer behaviour;
-- real fastener preload, backlash, lubrication, or wear;
-- servo torque and current requirements;
-- centre of gravity under all configurations;
-- competition-rule compliance;
-- physical manufacturability beyond basic mesh validity.
+- local hole positions, fits or clearances;
+- structural strength, fatigue, impact resistance or safety factor;
+- slicer support generation or real print quality;
+- material/process suitability;
+- rules compliance.
 
-These require Fusion analysis tools, dedicated simulation, slicer inspection, calculations, measurement, or human engineering review.
+Use the proper Fusion tool, calculation, simulation, slicer, physical test, or human review. Otherwise mark the claim `NOT_VERIFIED`.
