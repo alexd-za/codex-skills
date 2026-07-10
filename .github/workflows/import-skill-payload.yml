@@ -1,0 +1,35 @@
+name: Import skill payload
+
+on:
+  push:
+    paths:
+      - '.skill-payload/fusion-cad-guardian.zip.b64'
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode and extract skill
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f .skill-payload/fusion-cad-guardian.zip.b64
+          rm -rf skills/fusion-cad-guardian
+          mkdir -p skills
+          base64 --decode .skill-payload/fusion-cad-guardian.zip.b64 > /tmp/fusion-cad-guardian.zip
+          unzip -q /tmp/fusion-cad-guardian.zip -d skills
+          test -f skills/fusion-cad-guardian/SKILL.md
+          rm -f .skill-payload/fusion-cad-guardian.zip.b64
+      - name: Commit imported skill
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(fusion-cad-guardian): import v1.0.0" || exit 0
+          git push
