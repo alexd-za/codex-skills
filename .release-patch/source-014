@@ -1,0 +1,119 @@
+er_metrics = before["metrics"], after["metrics"]
+     tracked = [
+         "boundary_edge_count", "nonmanifold_edge_count", "degenerate_triangle_count",
+@@ -223,6 +242,26 @@ def render_compare_markdown(comparison: dict[str, Any]) -> str:
+     return "\n".join(lines) + "\n"
+ 
+ 
++def render_slicer_markdown(report: dict[str, Any]) -> str:
++    validate_slicer_report(report)
++    lines = [
++        "# Fusion CAD Guardian Slicer Evidence", "",
++        f"- **Verdict:** {report['verdict']}",
++        f"- **Part:** `{report.get('part_id') or 'single-part contract'}`",
++        f"- **G-code:** `{report['gcode']['path']}`",
++        f"- **SHA-256:** `{report['gcode']['sha256']}`", "",
++        "## Metadata", "", "| Field | Value |", "|---|---|",
++    ]
++    for key, value in report.get("metadata", {}).items():
++        lines.append(f"| `{key}` | {value} |")
++    if report.get("checks"):
++        lines += ["", "## Contract checks", "", "| Check | Status | Actual | Expected |", "|---|---|---|---|"]
++        for item in report["checks"]:
++            lines.append(f"| `{item['id']}` | {item['status']} | {item['actual']} | {item['expected']} |")
++    lines += ["", "## Limitations", ""] + [f"- {item}" for item in report.get("limitations", [])]
++    return "\n".join(lines) + "\n"
++
++
+ def render_gate_markdown(report: dict[str, Any]) -> str:
+     lines = [
+         "# Fusion CAD Guardian Acceptance Gate", "",
+@@ -239,29 +278,26 @@ def render_gate_markdown(report: dict[str, Any]) -> str:
+     lines += ["", "## Mesh reports", "", "| Part | Mesh | Verdict | Status | SHA-256 |", "|---|---|---|---|---|"]
+     for item in report["mesh_reports"]:
+         lines.append(f"| `{item.get('part_id') or ''}` | `{item['path']}` | {item['verdict']} | {item['status']} | `{item['sha256']}` |")
++    lines += ["", "## Slicer reports", "", "| Part | G-code | Verdict | Status | Source mesh SHA-256 |", "|---|---|---|---|---|"]
++    for item in report.get("slicer_reports", []):
++        lines.append(f"| `{item.get('part_id') or ''}` | `{item['path']}` | {item['verdict']} | {item['status']} | `{item.get('source_mesh_sha256') or ''}` |")
++    if not report.get("slicer_reports"):
++        lines.append("|  | No slicer reports supplied |  |  |  |")
+     lines += ["", "## Missing required parts", ""]
+     lines += [f"- `{item}`" for item in report.get("missing_required_parts", [])] or ["- None"]
++    lines += ["", "## Missing required slicer evidence", ""]
++    lines += [f"- `{item}`" for item in report.get("missing_required_slicer_parts", [])] or ["- None"]
+     lines += ["", "## Open items", ""]
+-    open_items = (
+-        report["evidence"]["required_failures"]
+-        + report["evidence"]["required_not_verified"]
+-        + report["evidence"]["optional_open_items"]
+-    )
++    open_items = report["evidence"]["required_failures"] + report["evidence"]["required_not_verified"] + report["evidence"]["optional_open_items"]
+     lines += [f"- `{item}`" for item in open_items] or ["- None"]
+     return "\n".join(lines) + "\n"
+ 
+ 
+-def create_project(
+-    directory: Path,
+-    name: str,
+-    task_type: str,
+-    *,
+-    parts: list[tuple[str, str]] | None = None,
+-) -> dict[str, Any]:
++def create_project(directory: Path, name: str, task_type: str, *, parts: list[tuple[str, str]] | None = None) -> dict[str, Any]:
+     if directory.exists() and any(directory.iterdir()):
+         raise GuardianError(f"project directory is not empty: {directory}")
+     directory.mkdir(parents=True, exist_ok=True)
+-    for child in ("exports", "reports", "snapshots", "schemas"):
++    for child in ("exports", "gcode", "reports", "snapshots", "bundles"):
+         (directory / child).mkdir(exist_ok=True)
+     contract = default_contract(name, task_type, parts=parts)
+     evidence = default_evidence(contract)
+@@ -270,7 +306,7 @@ def create_project(
+     write_json(directory / "evidence.json", evidence)
+     write_json(directory / "capabilities.json", capabilities)
+     write_json(directory / "batch.json", {"jobs": []})
+-    task = f"""# {name}\n\nUse Fusion MCP for all live CAD operations. Use Fusion CAD Guardian for contracts, capability routing, exported-mesh checks, evidence tracking, and the final acceptance gate.\n\n## Required sequence\n\n1. Inspect the connected Fusion MCP tools and populate `capabilities.json`.\n2. Run `guardian.py plan` and resolve required blockers before editing.\n3. Preserve the original design with a checkpoint.\n4. Replace placeholder criteria in `contract.json`.\n5. Build and inspect the design through Fusion MCP.\n6. Populate `evidence.json` with actual methods and evidence.\n7. Export each final candidate mesh into `exports/`; for multi-part contracts record `part_id`.\n8. Audit each export with its matching `--part-id` into `reports/`.\n9. Run the acceptance gate.\n10. Report unverified engineering assumptions explicitly.\n"""
++    task = f"""# {name}\n\nUse Fusion MCP for all live CAD operations. Use Fusion CAD Guardian for contracts, capability routing, export verification, optional slicer evidence, and the final acceptance gate.\n\n## Required sequence\n\n1. Inspect the connected Fusion MCP tools and populate `capabilities.json`.\n2. Run `guardian.py plan` and resolve required blockers before editing.\n3. Preserve the original design with a checkpoint.\n4. Replace placeholder criteria in `contract.json`.\n5. Build and inspect the design through Fusion MCP.\n6. Populate `evidence.json` with actual methods and evidence.\n7. Export each final candidate as STL or 3MF into `exports/`; record `part_id`.\n8. Audit each export with its matching `--part-id` into `reports/`.\n9. When slicer criteria are enabled, slice externally, save G-code in `gcode/`, and create source-mesh-linked slicer reports.\n10. Run the acceptance gate and create a verification bundle.\n11. Report unverified engineering assumptions explicitly.\n"""
+     write_text(directory / "TASK.md", task)
+     return {
+         "guardian_version": VERSION,
+@@ -282,12 +318,22 @@ def create_project(
+     }
+ 
+ 
+-def run_gate(contract_path: Path, evidence_path: Path, mesh_report_paths: list[Path]) -> dict[str, Any]:
++def run_gate(
++    contract_path: Path,
++    evidence_path: Path,
++    mesh_report_paths: list[Path],
++    slicer_report_paths: list[Path] | None = None,
++) -> dict[str, Any]:
+     contract = validate_contract(load_json(contract_path))
+     evidence = load_json(evidence_path)
+     mesh_reports = [validate_audit_report(load_json(path)) for path in mesh_report_paths]
++    slicer_reports = [validate_slicer_report(load_json(path)) for path in (slicer_report_paths or [])]
+     result = gate(
+-        contract, evidence, mesh_reports, expected_contract_sha256=sha256_file(contract_path)
++        contract,
++        evidence,
++        mesh_reports,
++        slicer_reports,
++        expected_contract_sha256=sha256_file(contract_path),
+     )
+     return {
+         "guardian_version": VERSION,
+@@ -298,43 +344,62 @@ def run_gate(contract_path: Path, evidence_path: Path, mesh_report_paths: list[P
+     }
+ 
+ 
++def _write_test_3mf(path: Path) -> None:
++    model = """<?xml version="1.0" encoding="UTF-8"?>
++<model unit="millimeter" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">
++<resources><object id="1" name="cube"><mesh><vertices>
++<vertex x="0" y="0" z="0"/><vertex x="10" y="0" z="0"/><vertex x="10" y="10" z="0"/><vertex x="0" y="10" z="0"/>
++<vertex x="0" y="0" z="10"/><vertex x="10" y="0" z="10"/><vertex x="10" y="10" z="10"/><vertex x="0" y="10" z="10"/>
++</vertices><triangles>
++""" + "".join(f'<triangle v1="{a}" v2="{b}" v3="{c}"/>' for a,b,c in [
++(0,2,1),(0,3,2),(4,5,6),(4,6,7),(0,1,5),(0,5,4),(3,7,6),(3,6,2),(0,4,7),(0,7,3),(1,2,6),(1,6,5)]) + """
++</triangles></mesh></object></resources><build><item objectid="1"/></build></model>"""
++    rels = """<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="h
