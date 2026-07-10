@@ -1,0 +1,159 @@
+6 @@ def tighten_limits(primary: ResourceLimits, requested: Any | None) -> ResourceLi
+     if requested is None:
+         return primary.validate()
+     candidate = limits_from_mapping(requested, base=primary)
+-    return ResourceLimits(
+-        max_file_size_mb=min(primary.max_file_size_mb, candidate.max_file_size_mb),
+-        max_triangles=min(primary.max_triangles, candidate.max_triangles),
+-        max_coordinate_abs_mm=min(primary.max_coordinate_abs_mm, candidate.max_coordinate_abs_mm),
+-        max_estimated_memory_mb=min(primary.max_estimated_memory_mb, candidate.max_estimated_memory_mb),
+-    ).validate()
++    values = {
++        key: min(primary.to_dict()[key], candidate.to_dict()[key])
++        for key in _LIMIT_FIELDS
++    }
++    values["max_triangles"] = int(values["max_triangles"])
++    values["max_archive_entries"] = int(values["max_archive_entries"])
++    return ResourceLimits(**values).validate()
+ 
+ 
+ def estimated_mesh_memory_mb(triangle_count: int) -> float:
+     """Conservative estimate for Python object-heavy triangle analysis."""
+ 
+-    # Python tuples/floats/dicts used by the analyser are substantially larger than
+-    # the 50-byte STL record. 640 bytes/triangle is intentionally conservative.
+     return triangle_count * 640.0 / (1024.0 * 1024.0)
+diff --git a/skills/fusion-cad-guardian/scripts/guardian_lib/reports.py b/skills/fusion-cad-guardian/scripts/guardian_lib/reports.py
+index 62add11..3127e1c 100644
+--- a/skills/fusion-cad-guardian/scripts/guardian_lib/reports.py
++++ b/skills/fusion-cad-guardian/scripts/guardian_lib/reports.py
+@@ -5,19 +5,18 @@ import json
+ from pathlib import Path
+ import tempfile
+ from typing import Any
++import zipfile
+ 
+ from . import VERSION
++from .bundle import create_bundle, verify_bundle
+ from .capabilities import default_capability_profile
+-from .contracts import (
+-    default_contract,
+-    evaluate_contract,
+-    resolve_mesh_contract,
+-    validate_contract,
+-)
+-from .core import analyze_mesh, cube_triangles, read_stl, sha256_file, write_binary_stl
++from .contracts import default_contract, evaluate_contract, resolve_mesh_contract, validate_contract
++from .core import analyze_mesh, cube_triangles, sha256_file, write_binary_stl
+ from .errors import GuardianError
+ from .evidence import default_evidence, gate
+ from .limits import DEFAULT_RESOURCE_LIMITS, ResourceLimits, tighten_limits
++from .meshio import read_mesh
++from .slicer import build_slicer_report, validate_slicer_report
+ 
+ AUDIT_REPORT_SCHEMA_URI = (
+     "https://raw.githubusercontent.com/alexd-za/codex-skills/main/skills/"
+@@ -25,11 +24,11 @@ AUDIT_REPORT_SCHEMA_URI = (
+ )
+ 
+ LIMITATIONS = [
+-    "STL analysis does not verify assembly joints, motion, interference, or component connectivity.",
+-    "STL analysis does not verify minimum wall thickness, structural strength, material suitability, or print shrinkage.",
++    "Exported mesh analysis does not verify assembly joints, motion, interference, or component connectivity.",
++    "Exported mesh analysis does not prove minimum wall thickness, structural strength, material suitability, or print shrinkage.",
+     "Bounding-box dimensions do not verify internal hole positions, local clearances, or feature tolerances.",
+     "Downward-facing area is an orientation heuristic, not a slicer support simulation.",
+-    "Results depend on the STL matching the intended final Fusion body or component.",
++    "Results depend on the audited STL or selected 3MF object matching the intended final Fusion body or component.",
+ ]
+ 
+ 
+@@ -73,11 +72,13 @@ def validate_audit_report(report: Any) -> dict[str, Any]:
+     return report
+ 
+ 
+-def audit_stl(
++def audit_mesh(
+     mesh_path: Path,
+     *,
+     contract_path: Path | None = None,
+     part_id: str | None = None,
++    object_id: str | None = None,
++    object_name: str | None = None,
+     weld_tolerance_mm: float = 1e-6,
+     area_epsilon_mm2: float = 1e-12,
+     sliver_quality_threshold: float = 0.05,
+@@ -92,7 +93,12 @@ def audit_stl(
+         mesh_rules, resolved_part_id, resolved_name = {}, None, ""
+         if part_id:
+             raise GuardianError("--part-id requires --contract")
+-    stl_format, triangles, preflight = read_stl(mesh_path, limits=active_limits)
++    mesh_format, triangles, preflight, source_metadata = read_mesh(
++        mesh_path,
++        limits=active_limits,
++        object_id=object_id,
++        object_name=object_name,
++    )
+     orientation = mesh_rules.get("orientation", {})
+     metrics = analyze_mesh(
+         triangles,
+@@ -113,8 +119,9 @@ def audit_stl(
+         "mesh": {
+             "path": str(mesh_path.resolve()),
+             "sha256": sha256_file(mesh_path),
+-            "format": stl_format,
++            "format": mesh_format,
+             "size_bytes": mesh_path.stat().st_size,
++            "source_metadata": source_metadata,
+         },
+         "contract": {
+             "path": str(contract_path.resolve()) if contract_path else None,
+@@ -133,12 +140,18 @@ def audit_stl(
+     }
+ 
+ 
++def audit_stl(mesh_path: Path, **kwargs: Any) -> dict[str, Any]:
++    """Backward-compatible alias. v2.2 accepts STL and 3MF through ``audit_mesh``."""
++    return audit_mesh(mesh_path, **kwargs)
++
++
+ def render_audit_markdown(report: dict[str, Any]) -> str:
+     report = validate_audit_report(report)
+     metrics = report["metrics"]
+     center = metrics.get("center_of_mass_mm")
+     center_text = "Not available" if center is None else f"{center['x']:.6g}, {center['y']:.6g}, {center['z']:.6g} mm"
+     part_text = report.get("contract", {}).get("part_id") or "single-part contract"
++    source_metadata = report.get("mesh", {}).get("source_metadata", {})
+     lines = [
+         "# Fusion CAD Guardian Mesh Report", "",
+         f"- **Verdict:** {report['verdict']}",
+@@ -146,9 +159,9 @@ def render_audit_markdown(report: dict[str, Any]) -> str:
+         f"- **Mesh:** `{report['mesh']['path']}`",
+         f"- **SHA-256:** `{report['mesh']['sha256']}`",
+         f"- **Format:** {report['mesh']['format']}",
++        f"- **Selected object:** `{source_metadata.get('object_id') or ''}` {source_metadata.get('object_name') or ''}",
+         f"- **Estimated analysis memory:** {report.get('input_preflight', {}).get('estimated_memory_mb', 0):.3g} MB", "",
+-        "## Metrics", "",
+-        "| Metric | Value |", "|---|---:|",
++        "## Metrics", "", "| Metric | Value |", "|---|---:|",
+         f"| Dimensions X × Y × Z | {metrics['dimensions_mm']['x']:.6g} × {metrics['dimensions_mm']['y']:.6g} × {metrics['dimensions_mm']['z']:.6g} mm |",
+         f"| Triangles | {metrics['triangle_count']} |",
+         f"| Unique vertices | {metrics['unique_vertex_count']} |",
+@@ -171,6 +184,7 @@ def render_audit_markdown(report: dict[str, Any]) -> str:
+         for check in report["checks"]:
+             lines.append(f"| `{check['id']}` | {check['status']} | {check['actual']} | {check['expected']} |")
+         lines.append("")
++    lines += ["## Input preflight", "", "```json", json.dumps(report.get("input_preflight", {}), indent=2), "```", ""]
+     lines += ["## Resource limits", "", "```json", json.dumps(report.get("resource_limits", {}), indent=2), "```", ""]
+     lines += ["## Limitations", ""] + [f"- {item}" for item in report["limitations"]]
+     return "\n".join(lines) + "\n"
+@@ -183,6 +197,11 @@ def compare_reports(before: dict[str, Any], after: dict[str, Any]) -> dict[str,
+     after_part = after.get("contract", {}).get("part_id")
+     if before_part != after_part:
+         raise GuardianError(f"cannot compare different part identities: {before_part!r} vs {after_part!r}")
++    before_source = before.get("mesh", {}).get("source_metadata", {})
++    after_source = after.get("mesh", {}).get("source_metadata", {})
++    for selector in ("object_id", "object_name"):
++        if before_source.get(selector) != after_source.get(selector):
++            raise GuardianError(f"cannot compare different 3MF selections: {selector}")
+     before_metrics, aft
