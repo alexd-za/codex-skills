@@ -25,8 +25,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -f .release-patch/v2.2.0.part00
-          cat .release-patch/v2.2.0.part* > /tmp/fusion-cad-guardian-v2.2.patch
+          test -f .release-patch/source-000
+          cat .release-patch/source-* > /tmp/fusion-cad-guardian-v2.2.patch
           actual="$(sha256sum /tmp/fusion-cad-guardian-v2.2.patch | awk '{print $1}')"
           test "$actual" = "cc4e1855026125767c66b979159e85112108dd7831fb4775bd0132c42d52c964"
           git apply --check /tmp/fusion-cad-guardian-v2.2.patch
