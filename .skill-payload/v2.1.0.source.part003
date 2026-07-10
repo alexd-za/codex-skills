@@ -1,0 +1,462 @@
++      "id": "sensor_cover.feature_health",
++      "part_id": "sensor_cover",
++      "required": true,
+       "status": "NOT_VERIFIED",
+       "method": "",
+       "evidence": "",
+-      "source": "calculation"
++      "source": "fusion_mcp",
++      "timestamp": ""
++    },
++    {
++      "id": "sensor_cover.export_selection",
++      "part_id": "sensor_cover",
++      "required": true,
++      "status": "NOT_VERIFIED",
++      "method": "",
++      "evidence": "",
++      "source": "fusion_mcp",
++      "timestamp": ""
+     }
+   ],
+   "exports": [
+     {
+-      "mesh": "exports/rover-camera-bracket.stl",
++      "mesh": "exports/camera-bracket.stl",
+       "mesh_sha256": "",
++      "part_id": "camera_bracket",
+       "component": "Camera_Bracket",
+       "body": "Bracket_Print_Body",
+-      "document": "Rover Camera Bracket",
++      "document": "Rover Camera Mount Assembly",
++      "checkpoint": "Version 7",
++      "method": "Fusion MCP STL export in millimetres"
++    },
++    {
++      "mesh": "exports/sensor-cover.stl",
++      "mesh_sha256": "",
++      "part_id": "sensor_cover",
++      "component": "Sensor_Cover",
++      "body": "Cover_Print_Body",
++      "document": "Rover Camera Mount Assembly",
+       "checkpoint": "Version 7",
+       "method": "Fusion MCP STL export in millimetres"
+     }
+   ],
+-  "notes": ["Run evidence-hash after the STL is exported."]
++  "notes": [
++    "Populate this ledger only with evidence actually gathered through Fusion MCP, calculations, simulation, slicer review, physical testing, or human review."
++  ]
+ }
+diff --git a/skills/fusion-cad-guardian/manifest.txt b/skills/fusion-cad-guardian/manifest.txt
+index 4bf0f78d84e26068804f211c5610e2b9c7ebe503..5087e87ea20659da2cdf02cd656281ba244de8ec 100644
+--- a/skills/fusion-cad-guardian/manifest.txt
++++ b/skills/fusion-cad-guardian/manifest.txt
+@@ -5,19 +5,34 @@ SKILL.md
+ VERSION
+ agents/openai.yaml
+ assets/batch.example.json
++assets/capabilities.example.json
+ assets/contract.example.json
+ assets/evidence.example.json
++manifest.txt
+ references/acceptance-gate.md
+ references/capability-boundaries.md
++references/capability-profile.md
+ references/design-contract.md
+ references/evidence-ledger.md
++references/json-schemas.md
+ references/mcp-routing.md
+ references/mechanical-verification.md
++references/multi-part.md
++references/resource-limits.md
++schemas/audit-report.schema.json
++schemas/capability-profile.schema.json
++schemas/contract.schema.json
++schemas/evidence.schema.json
++schemas/export-record.schema.json
+ scripts/guardian.ps1
+ scripts/guardian.py
+ scripts/guardian_lib/__init__.py
++scripts/guardian_lib/capabilities.py
+ scripts/guardian_lib/contracts.py
+ scripts/guardian_lib/core.py
++scripts/guardian_lib/errors.py
+ scripts/guardian_lib/evidence.py
++scripts/guardian_lib/limits.py
+ scripts/guardian_lib/reports.py
++tests/schema_conformance.py
+ tests/test_guardian.py
+diff --git a/skills/fusion-cad-guardian/references/acceptance-gate.md b/skills/fusion-cad-guardian/references/acceptance-gate.md
+index c870f8f4d11153439b58934b3e9765eafbdf1158..84bebede7f08977196e87ba8b2424c6e15570959 100644
+--- a/skills/fusion-cad-guardian/references/acceptance-gate.md
++++ b/skills/fusion-cad-guardian/references/acceptance-gate.md
+@@ -1,10 +1,11 @@
+ # Acceptance gate
+ 
+-The gate combines three independent evidence classes:
++The gate combines:
+ 
+ 1. live-model and engineering evidence from `evidence.json`;
+ 2. contract-backed STL reports;
+-3. export provenance linking each audited STL to the recorded Fusion document and checkpoint.
++3. export provenance linking each audited STL to the recorded Fusion document, checkpoint, body/component, and part identity;
++4. multi-part completeness when the contract defines required parts.
+ 
+ ## Mesh report requirements
+ 
+@@ -13,14 +14,19 @@ A mesh report satisfies the gate only when:
+ - its verdict is `PASS`;
+ - it was generated with a contract, not audit-only mode;
+ - its embedded contract SHA-256 matches the current contract;
+-- its STL SHA-256 matches a complete export record.
++- its STL SHA-256 matches a complete export record;
++- its `part_id` matches the export record when using a multi-part contract.
+ 
+ Changing the contract after auditing invalidates the old report. Re-run the audit.
+ 
++## Multi-part completeness
++
++Every `parts[]` entry with `required: true` needs a current passing report. Missing a required part produces `INCOMPLETE`, even when all submitted reports pass.
++
+ ## Verdict precedence
+ 
+-1. Any required or mesh failure -> `FAIL`.
+-2. Missing required evidence, stale contract report, missing mesh report, or incomplete provenance -> `INCOMPLETE`.
++1. Any required evidence or mesh failure -> `FAIL`.
++2. Missing required evidence, stale contract report, missing required part, or incomplete provenance -> `INCOMPLETE`.
+ 3. Required checks pass but optional engineering checks remain -> `CONDITIONAL_PASS`.
+ 4. Everything passes -> `PASS`.
+ 
+diff --git a/skills/fusion-cad-guardian/references/design-contract.md b/skills/fusion-cad-guardian/references/design-contract.md
+index 83eeee46639fc23f2cb8a54d7ad97da0b8c5c4a5..f0937147c05829650c3b4fdf7926af36ab79fb19 100644
+--- a/skills/fusion-cad-guardian/references/design-contract.md
++++ b/skills/fusion-cad-guardian/references/design-contract.md
+@@ -1,13 +1,16 @@
+-# Design contract schema v2
++# Design contract schema v2.1
+ 
+-A schema-v2 contract has four concerns:
++A current contract separates:
+ 
+-- identity: `part_name`, `task_type`, and `units`;
+-- `mesh`: deterministic STL criteria;
++- project identity: `part_name`, `task_type`, `units`;
++- one top-level `mesh` contract for a single output, or `parts[].mesh` for multiple outputs;
+ - `fusion_requirements`: live-model evidence requirements;
+-- `engineering_requirements`: calculation, simulation, slicer, physical-test, or human-review requirements.
++- `assembly_requirements`: cross-component or mechanism evidence;
++- `engineering_requirements`: calculation, simulation, slicer, physical-test, or human-review requirements;
++- `resource_limits`: input-safety limits that may only tighten runtime limits;
++- `export_provenance_required`: whether each report must match a recorded Fusion export.
+ 
+-`export_provenance_required` should remain `true` for final acceptance.
++`schema_version` remains `2` for v2 compatibility. `schema_revision` is `2.1`.
+ 
+ ## Range syntax
+ 
+@@ -23,36 +26,38 @@ or:
+ {"min": 19.9, "max": 20.1}
+ ```
+ 
+-## Mesh criteria
+-
+-Supported criteria include:
++## Requirement semantics
+ 
+-- `expected_dimensions_mm`
+-- `volume_mm3`
+-- `surface_area_mm2`
+-- `mass_g` with `density_g_cm3`
+-- manifold and triangle-defect limits
+-- `max_sliver_triangles`
+-- `min_triangle_quality`
+-- triangle count range
+-- positive signed volume
+-- `build_plate`
+-- `orientation`
++```json
++{
++  "id": "critical_parameters",
++  "required": true,
++  "capability": "read_parameters",
++  "description": "Mount spacing and fastener diameters verified in Fusion"
++}
++```
+ 
+-Do not encode a local feature tolerance as an overall bounding-box dimension.
++`capability` maps the requirement to the MCP capability profile. It is optional for engineering requirements that do not belong to Fusion MCP.
+ 
+-## Requirement semantics
++## Multi-part semantics
+ 
+-Each requirement contains:
++Each part contains:
+ 
+ ```json
+ {
+-  "id": "critical_parameters",
++  "id": "camera_bracket",
++  "name": "Camera Bracket",
+   "required": true,
+-  "description": "Mount spacing and fastener diameters verified in Fusion"
++  "mesh": {},
++  "fusion_requirements": [],
++  "engineering_requirements": []
+ }
+ ```
+ 
+-Use stable, unique IDs because the evidence ledger maps by ID.
++Part IDs are stable machine identifiers and become evidence namespaces and export identities. See `multi-part.md`.
++
++## Mesh criteria
++
++Supported criteria include overall dimensions, volume, surface area, estimated mass, topology limits, triangle quality, build-plate contact, and orientation heuristics. Do not encode local feature tolerances as overall bounding-box dimensions.
+ 
+-Schema-v1 mesh contracts remain accepted for backwards compatibility, but they cannot express Fusion or engineering evidence and are not recommended for new work.
++Schema-v1 mesh contracts remain accepted for backward compatibility, but they cannot express capability routing, multi-part identity, or live-model evidence.
+diff --git a/skills/fusion-cad-guardian/references/evidence-ledger.md b/skills/fusion-cad-guardian/references/evidence-ledger.md
+index c1a97f1dbbe785bd17cbfd16c2eb6527651c6d15..acdff4d6dae180ce1bdfb54a075fe1c28cfae9fe 100644
+--- a/skills/fusion-cad-guardian/references/evidence-ledger.md
++++ b/skills/fusion-cad-guardian/references/evidence-ledger.md
+@@ -23,7 +23,25 @@ Use one of:
+ 
+ Viewport appearance is not sufficient evidence for a dimensional, joint, interference, or manufacturing claim.
+ 
+-## Good evidence
++## Multi-part evidence
++
++Part-specific requirement IDs are namespaced as `<part_id>.<requirement_id>`, for example:
++
++```json
++{
++  "id": "camera_bracket.critical_parameters",
++  "part_id": "camera_bracket",
++  "required": true,
++  "status": "PASS",
++  "method": "Fusion MCP parameter inspection",
++  "evidence": "Mount spacing 40.00 mm and M3 hole diameter 3.20 mm in checkpoint V7",
++  "source": "fusion_mcp"
++}
++```
++
++Every multi-part export record must carry the same `part_id` used by its audit report.
++
++## Good assembly evidence
+ 
+ ```json
+ {
+@@ -31,7 +49,7 @@ Viewport appearance is not sufficient evidence for a dimensional, joint, interfe
+   "required": true,
+   "status": "PASS",
+   "method": "Fusion MCP interference analysis at 0°, 30°, 60° and 90° joint positions",
+-  "evidence": "No interference reported at all sampled positions; minimum observed clearance 2.1 mm",
++  "evidence": "No interference reported at sampled positions; minimum observed clearance 2.1 mm",
+   "source": "fusion_mcp"
+ }
+ ```
+diff --git a/skills/fusion-cad-guardian/references/mcp-routing.md b/skills/fusion-cad-guardian/references/mcp-routing.md
+index 9e6e4a986362ee633b8e225cf2b0c48ec0ca1eea..8539bc5d04ccbbfc3fde0254eac3f398bb91169a 100644
+--- a/skills/fusion-cad-guardian/references/mcp-routing.md
++++ b/skills/fusion-cad-guardian/references/mcp-routing.md
+@@ -2,22 +2,30 @@
+ 
+ ## Always route to Fusion MCP
+ 
+-- create, edit, suppress or delete CAD objects;
++Subject to the connected server's actual capability profile:
++
++- create, edit, suppress, or delete CAD objects;
+ - inspect the live model;
+ - save/version/checkpoint;
+-- move joints and test representative positions;
++- move joints and inspect representative positions;
+ - run interference analysis;
+ - export final geometry.
+ 
+ ## Always route to Guardian
+ 
+-- create/validate contracts;
+-- create/validate evidence ledgers;
++- create and validate contracts;
++- create and validate MCP capability profiles;
++- generate a verification routing plan;
++- create and validate evidence ledgers;
+ - hash and bind exported meshes;
+-- audit STL files;
++- audit STL files under explicit resource limits;
+ - compare audit reports;
+ - run the final acceptance gate.
+ 
++## Capability discovery
++
++Do not assume tool names. Inspect the connected MCP server, record concrete tools or methods in `capabilities.json`, then run `guardian.py plan`.
++
+ ## Do not use Guardian as a fallback CAD controller
+ 
+ If Fusion MCP lacks a required live operation:
+diff --git a/skills/fusion-cad-guardian/scripts/guardian.py b/skills/fusion-cad-guardian/scripts/guardian.py
+index 3aad76301c488a1c6e64b4a4f50f04ea7cbd6ab7..d810202a5b74d35eb5e879b829716cc72e637fc4 100755
+--- a/skills/fusion-cad-guardian/scripts/guardian.py
++++ b/skills/fusion-cad-guardian/scripts/guardian.py
+@@ -1,5 +1,5 @@
+ #!/usr/bin/env python3
+-"""Fusion CAD Guardian: evidence and deterministic mesh checks for Fusion MCP workflows."""
++"""Fusion CAD Guardian: verification and acceptance support for Fusion MCP workflows."""
+ 
+ from __future__ import annotations
+ 
+@@ -14,29 +14,92 @@ if str(SCRIPT_DIR) not in sys.path:
+     sys.path.insert(0, str(SCRIPT_DIR))
+ 
+ from guardian_lib import VERSION
+-from guardian_lib.contracts import default_contract as _default_contract
+-from guardian_lib.contracts import validate_contract
+-from guardian_lib.core import GuardianError
++from guardian_lib.capabilities import (
++    CAPABILITY_KEYS,
++    build_verification_plan,
++    default_capability_profile,
++    set_capability,
++    validate_capability_profile,
++)
++from guardian_lib.contracts import (
++    default_contract as _default_contract,
++    default_part,
++    validate_contract,
++)
+ from guardian_lib.core import analyze_mesh
+ from guardian_lib.core import cube_triangles as _cube_triangles
+ from guardian_lib.core import write_binary_stl as _write_binary_stl
++from guardian_lib.errors import GuardianError
+ from guardian_lib.evidence import default_evidence, populate_export_hashes, validate_evidence
+-from guardian_lib.reports import audit_stl, compare_reports, create_project, load_json
+-from guardian_lib.reports import render_audit_markdown, render_compare_markdown, render_gate_markdown
+-from guardian_lib.reports import run_gate, run_self_test, write_json, write_text
++from guardian_lib.limits import ResourceLimits
++from guardian_lib.reports import (
++    audit_stl,
++    compare_reports,
++    create_project,
++    load_json,
++    render_audit_markdown,
++    render_compare_markdown,
++    render_gate_markdown,
++    run_gate,
++    run_self_test,
++    validate_audit_report,
++    write_json,
++    write_text,
++)
++
++
++def _parse_part(value: str) -> tuple[str, str]:
++    if "=" not in value:
++        raise argparse.ArgumentTypeError("part must use ID=Display Name")
++    part_id, name = value.split("=", 1)
++    if not part_id.strip() or not name.strip():
++        raise argparse.ArgumentTypeError("part must use non-empty ID=Display Name")
++    return part_id.strip(), name.strip()
++
++
++def _resource_limits(args: argparse.Namespace) -> ResourceLimits:
++    return ResourceLimits(
++        max_file_size_mb=args.max_file_size_mb,
++        max_triangles=args.max_input_triangles,
++        max_coordinate_abs_mm=args.max_coordinate_abs_mm,
++        max_estimated_memory_mb=args.max_estimated_memory_mb,
++    ).validate()
+ 
+ 
+ def _cmd_init(args: argparse.Namespace) -> int:
+     output = Path(args.out)
+     if output.exists() and not args.force:
+         raise GuardianError(f"output already exists: {output}; use --force to replace it")
+-    write_json(output, _default_contract(args.part_name, args.task_type))
++    write_json(output, _default_contract(args.part_name, args.task_type, parts=args.part or None))
+     print(f"Created contract template: {output}")
+     return 0
+ 
+ 
++def _cmd_part_add(args: argparse.Namespace) -> int:
++    source = Path(args.contract)
++    contract = validate_contract(load_json(source))
++    if contract.get("schema_version") != 2:
++        raise GuardianError("part-add requires a schema-version 2 contract")
++    if contract.get("mesh"):
++        if args.keep_top_level_mesh:
++            raise GuardianError("cannot keep top-level mesh when adding parts; multi-part contracts use parts[].mesh")
++        contract["mesh"] = {}
++    if any(part["id"] == args.id for part in contract.get("parts", [])):
++        raise GuardianError(f"part id already exists: {args.id}")
++    contract.setdefault("parts", []).append(default_part(args.id, args.name))
++    contract = validate_contract(contract)
++    output = Path(args.out) if args.out else source
++    if output.exists() and output != source and not args.force:
++        raise GuardianError(f"output already exists: {output}; use --force to replace it")
++    write_json(output, contract)
++    print(f"Added part {args.id}: {args.name} to {output}")
++    return 0
++
++
+ def _cmd_project(args: argparse.Namespace) -> int:
+-    result = create_project(Path(args.directory), args.name, args.task_type)
++    result = create_project(
++        Path(args.directory), args.name, args.task_type, parts=args.part or None
++    )
+     print(json.dumps(result, indent=2, ensure_ascii=False))
+     return 0
+ 
+@@ -60,13 +123,51 @@ def _cmd_evidence_hash(args: argparse.Namespace) -> int:
+     return 0
+ 
+ 
++def _cmd_capabilities_init(args: argparse.Namespace) -> int:
++    output = Path(args.out)
++    if output.exists() and not args.force:
++        raise GuardianError(f"output already exists: {output}; use --force to replace it")
++    write_json(output, default_capability_profile(args.server_name))
++    print(f"Created capability profile: {output}")
++    return 0
++
++
++def _cmd_capabilities_set(args: argparse.Namespace) -> int:
++    path = Path(args.profile)
++    profile = set_capability(
++        load_json(path),
++        args.capability,
++        args.status,
++        tool=args.tool or "",
++        method=args.method or "",
++        notes=args.notes or "",
++    )
++    output = Path(args.out) if args.out else path
++    write_json(output, profile)
++    print(json.dumps(profile["capabilities"][args.capability], indent=2, ensure_ascii=False))
++    return 0
++
++
++def _cmd_plan(args: argparse.Namespace) -> int:
++    contract = validate_contract(load_json(Path(args.contract)))
++    profile = validate_capability_profile(load_json(Path(args.capabilities)))
++    plan = build_verification_plan(contract, profile)
++    if args.json_out:
++        write_json(Path(args.json_out), plan)
++    print(json.dumps(plan, indent=2, ensure_ascii=False))
++    return 1 if plan["readiness"] == "BLOCKED" else 0
++
++
+ def _cmd_validate(args: argparse.Namespace) -> int:
+     path = Path(args.file)
+     data = load_json(path)
+-    if args.kind == "contract":
+-        validate_contract(data)
+-    else:
+-        validate_evidence(data)
++    validators = {
++        "contract": validate_contract,
++        "evidence": validate_evidence,
++        "capabilities": validate_capability_profile,
++        "audit-report": validate_audit_report,
++    }
++    validators[args.kind](data)
