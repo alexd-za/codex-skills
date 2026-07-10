@@ -1,0 +1,345 @@
+diff --git a/.github/workflows/test-fusion-cad-guardian.yml b/.github/workflows/test-fusion-cad-guardian.yml
+index dba3aa5..10b2672 100644
+--- a/.github/workflows/test-fusion-cad-guardian.yml
++++ b/.github/workflows/test-fusion-cad-guardian.yml
+@@ -32,6 +32,8 @@ jobs:
+         run: python -m unittest discover -s skills/fusion-cad-guardian/tests -v
+       - name: Built-in self-test
+         run: python skills/fusion-cad-guardian/scripts/guardian.py self-test
++      - name: Package diagnostics
++        run: python skills/fusion-cad-guardian/scripts/guardian.py doctor
+       - name: Validate example contract
+         run: python skills/fusion-cad-guardian/scripts/guardian.py validate contract skills/fusion-cad-guardian/assets/contract.example.json
+       - name: Validate example evidence
+@@ -46,4 +48,4 @@ jobs:
+       - name: Test PowerShell wrapper
+         if: runner.os == 'Windows'
+         shell: pwsh
+-        run: ./skills/fusion-cad-guardian/scripts/guardian.ps1 self-test
++        run: ./skills/fusion-cad-guardian/scripts/guardian.ps1 doctor
+diff --git a/README.md b/README.md
+index db0f4a7..0f57ddb 100644
+--- a/README.md
++++ b/README.md
+@@ -4,9 +4,9 @@ Custom Codex skills, scripts, and reusable agent workflows.
+ 
+ ## Available skills
+ 
+-### Fusion CAD Guardian — v2.1.0
++### Fusion CAD Guardian — v2.2.0
+ 
+-A verification and acceptance layer that works **alongside Autodesk Fusion MCP**. Fusion MCP remains responsible for every live CAD operation; Guardian adds design contracts, capability routing, evidence tracking, export provenance, multi-part completeness, deterministic STL auditing, resource limits, regression comparison, and final acceptance gates.
++A verification and manufacturing-evidence layer that works **alongside Autodesk Fusion MCP**. Fusion MCP remains responsible for every live CAD operation; Guardian adds capability-aware design contracts, evidence tracking, export provenance, multi-part completeness, resource-limited STL/core-3MF auditing, source-linked G-code metadata, HTML reports, regression comparison, integrity bundles, and final acceptance gates.
+ 
+ Install with Codex:
+ 
+@@ -14,16 +14,17 @@ Install with Codex:
+ $skill-installer install https://github.com/alexd-za/codex-skills/tree/main/skills/fusion-cad-guardian
+ ```
+ 
+-Then restart Codex and verify locally:
++Restart Codex and verify locally:
+ 
+ ```powershell
+-py -3 "$HOME\.agents\skills\fusion-cad-guardian\scripts\guardian.py" self-test
++py -3 "$HOME\.agents\skills\fusion-cad-guardian\scripts\guardian.py" doctor
+ ```
+ 
+ [Open the skill directory](./skills/fusion-cad-guardian)
+ 
+ ## Release history
+ 
++- **v2.2.0** — core 3MF, existing-G-code evidence, HTML reports, integrity bundles, migration/doctor tooling, and archive hardening.
+ - **v2.1.0** — JSON Schemas, MCP capability profiles, resource limits, and first-class multi-part verification.
+ - **v2.0.0** — evidence ledger, export provenance, enhanced mesh analysis, and acceptance gate.
+ - **v1.0.0** — initial STL audit and design-contract workflow.
+diff --git a/skills/fusion-cad-guardian/CHANGELOG.md b/skills/fusion-cad-guardian/CHANGELOG.md
+index 3eb7de4..8085d71 100644
+--- a/skills/fusion-cad-guardian/CHANGELOG.md
++++ b/skills/fusion-cad-guardian/CHANGELOG.md
+@@ -1,5 +1,42 @@
+ # Changelog
+ 
++## 2.2.0 — 2026-07-10
++
++Final stabilization and manufacturing-evidence release for the current feature cycle.
++
++### Added
++
++- Resource-limited core 3MF auditing with standard unit conversion, mesh objects, components, build items, and transforms.
++- Explicit 3MF object selection by ID or name and an `inspect-3mf` discovery command.
++- 3MF ZIP/XML defenses for traversal, encryption, archive expansion, compression ratios, DTD/entity declarations, invalid transforms, component cycles, and pathological coordinates.
++- Existing-G-code metadata parsing for common generator, print-time, filament, layer, nozzle, and maximum-Z comments.
++- Source-mesh-linked slicer reports and optional contract criteria integrated into the final gate.
++- Standalone escaped HTML reports for mesh audits, slicer evidence, comparisons, and acceptance results.
++- Integrity-checked verification bundles with streamed creation, streamed verification, manifests, SHA-256 checks, and archive resource limits.
++- `bundle`, `bundle-verify`, `inspect-3mf`, `slicer-audit`, `migrate`, and `doctor` commands.
++- `export_3mf` capability-profile key while retaining `export_stl` compatibility.
++- Slicer-report and bundle-manifest JSON Schemas, bringing the total to seven.
++- Project `gcode/` and `bundles/` directories.
++- 41 dependency-free unit tests plus schema-conformance validation.
++
++### Changed
++
++- Contract schema revision is now `2.2` while retaining `schema_version: 2` compatibility.
++- Mesh auditing accepts `.stl` and `.3mf`; `audit_stl` remains as a compatibility alias.
++- Slicer evidence can be required per project or per part and must link to the current contract and source mesh when configured.
++- Bundle and 3MF inputs share explicit archive limits for entries, expanded size, and compression ratio.
++- `doctor` verifies version consistency, manifest completeness, self-test status, and optional project artifacts.
++- Reports expose source-format and selected-3MF-object metadata.
++- Documentation distinguishes core 3MF and metadata parsing from unsupported advanced 3MF/slicer behavior.
++
++### Security and integrity
++
++- Guardian still never executes arbitrary Python inside Fusion or launches external CAD/slicer applications.
++- Untrusted archive inputs are preflighted before model or manifest processing.
++- Required checks cannot be bypassed with `NOT_APPLICABLE`.
++- Audit-only, stale-contract, wrong-part, wrong-source-mesh, or incomplete-provenance reports cannot satisfy the final gate.
++
++
+ ## 2.1.0 — 2026-07-10
+ 
+ Focused interoperability, safety, and multi-part release.
+diff --git a/skills/fusion-cad-guardian/README.md b/skills/fusion-cad-guardian/README.md
+index ac9c19d..0afb3a0 100644
+--- a/skills/fusion-cad-guardian/README.md
++++ b/skills/fusion-cad-guardian/README.md
+@@ -1,19 +1,21 @@
+-# Fusion CAD Guardian 2.1.0
++# Fusion CAD Guardian 2.2.0
+ 
+-A Codex skill that works **alongside Autodesk Fusion MCP** as a verification and acceptance layer.
++A Codex skill that works **alongside Autodesk Fusion MCP** as a verification, manufacturing-evidence, and acceptance layer.
+ 
+-Fusion MCP controls the live Fusion design. Guardian adds:
++Fusion MCP remains the sole controller of the live Fusion design. Guardian adds:
+ 
+-- explicit single-part and multi-part design contracts;
+-- a capability profile for the connected Fusion MCP server;
+-- capability-aware verification planning without assuming tool names;
++- single-part and multi-part design contracts;
++- capability-aware routing against the connected Fusion MCP;
+ - structured Fusion, engineering, and manufacturing evidence;
+ - SHA-256 export provenance;
+-- resource-limited deterministic STL auditing;
+-- before/after regression detection;
++- resource-limited STL and core 3MF auditing;
++- source-linked G-code/slicer metadata evidence;
++- revision comparison and regression detection;
++- standalone JSON, Markdown, and HTML reports;
++- integrity-checked verification bundles;
+ - a final `PASS`, `CONDITIONAL_PASS`, `INCOMPLETE`, or `FAIL` gate.
+ 
+-Guardian never edits Fusion, installs an add-in, or executes arbitrary Python inside Fusion.
++Guardian does **not** edit Fusion, install an add-in, execute Fusion Python, run a slicer, or claim that exported-file analysis proves mechanical performance.
+ 
+ ## Install
+ 
+@@ -25,51 +27,29 @@ Restart Codex after installation.
+ 
+ ## Requirements
+ 
+-- native Windows Codex;
+-- Autodesk Fusion with a connected Fusion MCP server;
+-- Python 3.10 or newer for local verification scripts;
+-- STL exports in millimetres.
++- Codex with local skill/script execution;
++- Autodesk Fusion with a connected Fusion MCP server for live-CAD work;
++- Python 3.10 or newer;
++- STL or core 3MF exports for deterministic mesh checks;
++- optional existing G-code for slicer evidence.
+ 
+-No third-party Python packages are required.
++The runtime uses only the Python standard library. CI optionally installs `jsonschema` to validate the published schemas.
+ 
+-## Verify
++## Verify the installation
+ 
+ ```powershell
+-py -3 "$HOME\.agents\skills\fusion-cad-guardian\scripts\guardian.py" self-test
++py -3 "$HOME\.agents\skills\fusion-cad-guardian\scripts\guardian.py" doctor
+ ```
+ 
+-## v2.1 additions
+-
+-### Formal JSON Schemas
+-
+-Draft 2020-12 schemas are included for contracts, evidence ledgers, export records, capability profiles, and audit reports. Runtime validation remains dependency-free.
+-
+-### Fusion MCP capability profile
+-
+-Guardian records which capabilities the connected server actually exposes. It requires a concrete tool or method before marking a capability available and can produce a routing plan showing `READY`, `DISCOVERY_REQUIRED`, or `BLOCKED` requirements.
+-
+-### Mesh resource limits
++Run the focused self-test:
+ 
+-Before loading an STL, Guardian checks:
+-
+-- file size;
+-- declared or observed triangle count;
+-- coordinate magnitude;
+-- estimated Python analysis memory.
+-
+-Contracts may tighten these limits but cannot silently loosen runtime limits.
+-
+-### Multi-part contracts
+-
+-A single contract can define several required manufacturing outputs. Each part receives:
++```powershell
++py -3 "$HOME\.agents\skills\fusion-cad-guardian\scripts\guardian.py" self-test
++```
+ 
+-- a stable `part_id`;
+-- its own mesh acceptance criteria;
+-- namespaced evidence requirements;
+-- part-linked export provenance;
+-- a required current report at the final gate.
++## Recommended workflow
+ 
+-## Create a multi-part project
++### 1. Create a project
+ 
+ ```powershell
+ py -3 .\scripts\guardian.py project .\guardian-project `
+@@ -79,25 +59,11 @@ py -3 .\scripts\guardian.py project .\guardian-project `
+   --part "sensor_cover=Sensor Cover"
+ ```
+ 
+-This creates:
+-
+-```text
+-guardian-project/
+-├── contract.json
+-├── evidence.json
+-├── capabilities.json
+-├── batch.json
+-├── TASK.md
+-├── exports/
+-├── reports/
+-└── snapshots/
+-```
+-
+-## Profile the connected Fusion MCP
++### 2. Profile the actual Fusion MCP
+ 
+ ```powershell
+ py -3 .\scripts\guardian.py capabilities-set `
+-  .\guardian-project\capabilities.json export_stl available `
++  .\guardian-project\capabilities.json inspect_component_structure available `
+   --tool "<actual-connected-tool-name>"
+ 
+ py -3 .\scripts\guardian.py plan `
+@@ -106,9 +72,15 @@ py -3 .\scripts\guardian.py plan `
+   --json .\guardian-project\plan.json
+ ```
+ 
+-Guardian does not infer tool availability from server names.
++Guardian never guesses tool availability from a server name.
++
++### 3. Build, inspect, checkpoint, and export through Fusion MCP
+ 
+-## Audit each exported part
++Use Fusion MCP for all live-model actions. Record concrete evidence in `evidence.json`, including the Fusion document, checkpoint/version, selected component/body, export method, and generated file.
++
++### 4. Audit STL or 3MF
++
++STL:
+ 
+ ```powershell
+ py -3 .\scripts\guardian.py audit `
+@@ -116,10 +88,42 @@ py -3 .\scripts\guardian.py audit `
+   --contract .\guardian-project\contract.json `
+   --part-id camera_bracket `
+   --json .\guardian-project\reports\camera-bracket.json `
+-  --markdown .\guardian-project\reports\camera-bracket.md
++  --markdown .\guardian-project\reports\camera-bracket.md `
++  --html .\guardian-project\reports\camera-bracket.html
+ ```
+ 
+-## Run the final gate
++3MF with multiple build objects:
++
++```powershell
++py -3 .\scripts\guardian.py inspect-3mf .\guardian-project\exports\assembly.3mf
++
++py -3 .\scripts\guardian.py audit `
++  .\guardian-project\exports\assembly.3mf `
++  --object-name "Camera Bracket" `
++  --contract .\guardian-project\contract.json `
++  --part-id camera_bracket `
++  --json .\guardian-project\reports\camera-bracket.json
++```
++
++Guardian supports the core 3MF mesh/component/build model, transforms, and standard units. It does not interpret advanced material, texture, beam-lattice, slice, or vendor-specific extensions.
++
++### 5. Import optional slicer evidence
++
++Guardian parses an **existing** G-code file. It never launches or controls a slicer.
++
++```powershell
++py -3 .\scripts\guardian.py slicer-audit `
++  .\guardian-project\gcode\camera-bracket.gcode `
++  --source-mesh .\guardian-project\exports\camera-bracket.3mf `
++  --contract .\guardian-project\contract.json `
++  --part-id camera_bracket `
++  --json .\guardian-project\reports\camera-bracket.slicer.json `
++  --html .\guardian-project\reports\camera-bracket.slicer.html
++```
++
++Recognized metadata includes common generator, estimated-time, filament, layer, nozzle, and maximum-Z comments. Missing metadata remains missing; it is never treated as zero.
++
++### 6. Run the acceptance gate
+ 
+ ```powershell
+ py -3 .\scripts\guardian.py gate `
+@@ -127,11 +131,47 @@ py -3 .\scripts\guardian.py gate `
+   --evidence .\guardian-project\evidence.json `
+   --mesh-report .\guardian-project\reports\camera-bracket.json `
+   --mesh-report .\guardian-project\reports\sensor-cover.json `
+-  --json .\guardian-project\reports\acceptance.json
++  --slicer-report .\guardian-project\reports\camera-bracket.slicer.json `
++  --json .\guardian-project\reports\acceptance.json `
++  --html .\guardian-project\reports\acceptance.html
++```
++
++### 7. Create an integrity bundle
++
++```powershell
++py -3 .\scripts\guardian.py bundle `
++  --project .\guardian-project `
++  --out .\guardian-project\bundles\camera-mount-verification.zip
++
++py -3 .\scripts\guardian.py bundle-verify `
++  .\guardian-project\bundles\camera-mount-verification.zip
+ ```
+ 
+-## Capability boundary
++The bundle contains a manifest with the size and SHA-256 of every included file. Verification is streamed and subject to archive resource limits.
++
++## v2.2 highlights
++
++- Core 3MF auditing with unit conversion, components, build items, transforms, and explicit object selection.
++- ZIP/XML defenses for 3MF and bundle inputs: path traversal, encrypted members, entry count, expanded size, compression ratio, DTD/entity declarations, transform cycles, and resource limits.
++- Existing-G-code metadata evidence linked to the exact source mesh SHA-256.
++- Optional slicer acceptance criteria integrated into single-part and multi-part gates.
++- Standalone escaped HTML reports for audit, slicer, comparison, and acceptance outputs.
++- Integrity bundles with streamed creation/verification and tamper detection.
++- `doctor` for package/project diagnostics and `migrate` for v2 contract revision upgrades.
++- Seven Draft 2020-12 JSON Schemas.
++- 41 dependency-free unit tests plus schema-conformance CI.
++
++## Critical limitations
++
++Guardian can verify file identity, global dimensions, topology indicators, shell counts, triangle defects, surface area, volume, uniform-density centre of mass, configured mass, build-plane contact, orientation heuristics, and selected slicer metadata.
++
++Guardian cannot prove:
+ 
+-Guardian can verify exported mesh identity, overall dimensions, topology indicators, shells, triangle defects, surface area, volume, uniform-density centre of mass, configured mass, build-plane contact, and orientation heuristics.
++- that the correct feature was modeled unless Fusion evidence identifies it;
++- local wall thickness or minimum clearance from its global mesh audit;
++- joint definitions or continuous collision-free motion;
++- strength, fatigue life, impact resistance, thermal performance, or material suitability;
++- slicer correctness or physical print success;
++- competition, regulatory, or safety compliance.
+ 
+-It cannot prove joint definitions, continuous collision-free motion, local clearances, minimum wall thickness, strength, fatigue, print success, material suitability, or rules compliance. Those require Fusion MCP evidence, calculation, simulation, slicer analysis, physical testing, or human engine
