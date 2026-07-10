@@ -1,0 +1,343 @@
+     print(json.dumps({"valid": True, "kind": args.kind, "path": str(path.resolve())}, indent=2))
+     return 0
+ 
+@@ -75,9 +176,11 @@ def _cmd_audit(args: argparse.Namespace) -> int:
+     report = audit_stl(
+         Path(args.mesh),
+         contract_path=Path(args.contract) if args.contract else None,
++        part_id=args.part_id,
+         weld_tolerance_mm=args.weld_tolerance,
+         area_epsilon_mm2=args.area_epsilon,
+         sliver_quality_threshold=args.sliver_quality_threshold,
++        resource_limits=_resource_limits(args),
+     )
+     if args.json_out:
+         write_json(Path(args.json_out), report)
+@@ -119,9 +222,11 @@ def _cmd_batch(args: argparse.Namespace) -> int:
+         report = audit_stl(
+             mesh,
+             contract_path=contract,
++            part_id=job.get("part_id"),
+             weld_tolerance_mm=args.weld_tolerance,
+             area_epsilon_mm2=args.area_epsilon,
+             sliver_quality_threshold=args.sliver_quality_threshold,
++            resource_limits=_resource_limits(args),
+         )
+         safe_name = "".join(char if char.isalnum() or char in "-_" else "_" for char in name)
+         json_path = output_dir / f"{safe_name}.mesh-report.json"
+@@ -130,6 +235,7 @@ def _cmd_batch(args: argparse.Namespace) -> int:
+         write_text(markdown_path, render_audit_markdown(report))
+         summaries.append({
+             "name": name,
++            "part_id": report.get("contract", {}).get("part_id"),
+             "mesh": str(mesh),
+             "verdict": report["verdict"],
+             "json_report": str(json_path),
+@@ -163,24 +269,42 @@ def _cmd_self_test(_args: argparse.Namespace) -> int:
+     return 0 if result["passed"] else 1
+ 
+ 
++def _add_resource_limit_arguments(parser: argparse.ArgumentParser) -> None:
++    parser.add_argument("--max-file-size-mb", type=float, default=512.0)
++    parser.add_argument("--max-input-triangles", type=int, default=5_000_000)
++    parser.add_argument("--max-coordinate-abs-mm", type=float, default=1_000_000.0)
++    parser.add_argument("--max-estimated-memory-mb", type=float, default=2048.0)
++
++
+ def build_parser() -> argparse.ArgumentParser:
+     parser = argparse.ArgumentParser(
+-        description="Evidence and deterministic mesh verification for Autodesk Fusion MCP workflows"
++        description="Verification and deterministic mesh acceptance support for Autodesk Fusion MCP workflows"
+     )
+     parser.add_argument("--version", action="version", version=f"%(prog)s {VERSION}")
+     sub = parser.add_subparsers(dest="command", required=True)
+ 
+-    init = sub.add_parser("init", help="create a schema-v2 design contract")
++    init = sub.add_parser("init", help="create a schema-v2.1 design contract")
+     init.add_argument("--out", required=True)
+     init.add_argument("--part-name", default="Example Part")
+     init.add_argument("--task-type", choices=("part", "assembly"), default="part")
++    init.add_argument("--part", action="append", type=_parse_part, help="add a part as ID=Display Name")
+     init.add_argument("--force", action="store_true")
+     init.set_defaults(func=_cmd_init)
+ 
++    part_add = sub.add_parser("part-add", help="add a part template to an existing contract")
++    part_add.add_argument("contract")
++    part_add.add_argument("--id", required=True)
++    part_add.add_argument("--name", required=True)
++    part_add.add_argument("--out")
++    part_add.add_argument("--force", action="store_true")
++    part_add.add_argument("--keep-top-level-mesh", action="store_true", help=argparse.SUPPRESS)
++    part_add.set_defaults(func=_cmd_part_add)
++
+     project = sub.add_parser("project", help="create a complete Guardian project workspace")
+     project.add_argument("directory")
+     project.add_argument("--name", required=True)
+     project.add_argument("--task-type", choices=("part", "assembly"), default="part")
++    project.add_argument("--part", action="append", type=_parse_part, help="add a part as ID=Display Name")
+     project.set_defaults(func=_cmd_project)
+ 
+     evidence_init = sub.add_parser("evidence-init", help="create an evidence ledger from a contract")
+@@ -194,22 +318,46 @@ def build_parser() -> argparse.ArgumentParser:
+     evidence_hash.add_argument("--out")
+     evidence_hash.set_defaults(func=_cmd_evidence_hash)
+ 
++    cap_init = sub.add_parser("capabilities-init", help="create a Fusion MCP capability profile")
++    cap_init.add_argument("--out", required=True)
++    cap_init.add_argument("--server-name", default="Fusion MCP")
++    cap_init.add_argument("--force", action="store_true")
++    cap_init.set_defaults(func=_cmd_capabilities_init)
++
++    cap_set = sub.add_parser("capabilities-set", help="set one discovered MCP capability")
++    cap_set.add_argument("profile")
++    cap_set.add_argument("capability", choices=CAPABILITY_KEYS)
++    cap_set.add_argument("status", choices=("available", "unavailable", "unknown"))
++    cap_set.add_argument("--tool")
++    cap_set.add_argument("--method")
++    cap_set.add_argument("--notes")
++    cap_set.add_argument("--out")
++    cap_set.set_defaults(func=_cmd_capabilities_set)
++
++    plan = sub.add_parser("plan", help="route contract requirements against an MCP capability profile")
++    plan.add_argument("--contract", required=True)
++    plan.add_argument("--capabilities", required=True)
++    plan.add_argument("--json", dest="json_out")
++    plan.set_defaults(func=_cmd_plan)
++
+     validate = sub.add_parser("validate", help="validate a Guardian JSON file")
+-    validate.add_argument("kind", choices=("contract", "evidence"))
++    validate.add_argument("kind", choices=("contract", "evidence", "capabilities", "audit-report"))
+     validate.add_argument("file")
+     validate.set_defaults(func=_cmd_validate)
+ 
+     audit = sub.add_parser("audit", help="audit an ASCII or binary STL")
+     audit.add_argument("mesh")
+     audit.add_argument("--contract")
++    audit.add_argument("--part-id")
+     audit.add_argument("--json", dest="json_out")
+     audit.add_argument("--markdown")
+     audit.add_argument("--weld-tolerance", type=float, default=1e-6)
+     audit.add_argument("--area-epsilon", type=float, default=1e-12)
+     audit.add_argument("--sliver-quality-threshold", type=float, default=0.05)
++    _add_resource_limit_arguments(audit)
+     audit.set_defaults(func=_cmd_audit)
+ 
+-    compare = sub.add_parser("compare", help="compare two audit JSON reports")
++    compare = sub.add_parser("compare", help="compare two audit JSON reports for the same part")
+     compare.add_argument("before")
+     compare.add_argument("after")
+     compare.add_argument("--json", dest="json_out")
+@@ -222,6 +370,7 @@ def build_parser() -> argparse.ArgumentParser:
+     batch.add_argument("--weld-tolerance", type=float, default=1e-6)
+     batch.add_argument("--area-epsilon", type=float, default=1e-12)
+     batch.add_argument("--sliver-quality-threshold", type=float, default=0.05)
++    _add_resource_limit_arguments(batch)
+     batch.set_defaults(func=_cmd_batch)
+ 
+     acceptance = sub.add_parser("gate", help="combine Fusion evidence and mesh reports into an acceptance verdict")
+diff --git a/skills/fusion-cad-guardian/scripts/guardian_lib/__init__.py b/skills/fusion-cad-guardian/scripts/guardian_lib/__init__.py
+index 88809861bc537594ad362312066d0e35cb11c97e..30bd2207cf141e75c3a5716264256d582a62cc74 100644
+--- a/skills/fusion-cad-guardian/scripts/guardian_lib/__init__.py
++++ b/skills/fusion-cad-guardian/scripts/guardian_lib/__init__.py
+@@ -1,3 +1,3 @@
+ """Fusion CAD Guardian implementation package."""
+ 
+-VERSION = "2.0.0"
++VERSION = "2.1.0"
+diff --git a/skills/fusion-cad-guardian/scripts/guardian_lib/contracts.py b/skills/fusion-cad-guardian/scripts/guardian_lib/contracts.py
+index 1caa46a8707952690ea77eecd1d593e4e0c6cfa1..38f1fcf6c8285222b9390a4dd26a2575b7c2ad89 100644
+--- a/skills/fusion-cad-guardian/scripts/guardian_lib/contracts.py
++++ b/skills/fusion-cad-guardian/scripts/guardian_lib/contracts.py
+@@ -1,8 +1,15 @@
+ from __future__ import annotations
+ 
++import re
+ from typing import Any
+ 
+ from .core import GuardianError, Triangle, build_plate_contact
++from .limits import DEFAULT_RESOURCE_LIMITS, limits_from_mapping
++
++CONTRACT_SCHEMA_URI = (
++    "https://raw.githubusercontent.com/alexd-za/codex-skills/main/skills/"
++    "fusion-cad-guardian/schemas/contract.schema.json"
++)
+ 
+ MESH_KEYS = {
+     "expected_dimensions_mm", "volume_mm3", "surface_area_mm2", "mass_g",
+@@ -13,34 +20,50 @@ MESH_KEYS = {
+     "orientation",
+ }
+ TOP_LEVEL_V2_KEYS = {
+-    "schema_version", "part_name", "task_type", "units", "mesh",
+-    "fusion_requirements", "engineering_requirements", "export_provenance_required", "notes",
++    "$schema", "schema_version", "schema_revision", "part_name", "task_type", "units", "mesh",
++    "parts", "fusion_requirements", "engineering_requirements", "assembly_requirements",
++    "export_provenance_required", "resource_limits", "notes",
+ }
+ TOP_LEVEL_V1_KEYS = {
+-    "schema_version", "part_name", "units", *MESH_KEYS, "notes",
++    "$schema", "schema_version", "part_name", "units", *MESH_KEYS, "notes",
++}
++PART_KEYS = {
++    "id", "name", "required", "mesh", "fusion_requirements",
++    "engineering_requirements", "notes",
+ }
++REQUIREMENT_KEYS = {"id", "required", "description", "capability"}
+ VALID_STATUSES = {"PASS", "FAIL", "NOT_VERIFIED", "NOT_APPLICABLE"}
++ID_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]*$")
+ 
+ 
+ def default_fusion_requirements(task_type: str = "part") -> list[dict[str, Any]]:
+     requirements = [
+-        {"id": "active_document", "required": True, "description": "Active Fusion document and design context confirmed"},
+-        {"id": "safe_checkpoint", "required": True, "description": "Original design preserved by save, version, copy, or explicit checkpoint"},
+-        {"id": "units_confirmed", "required": True, "description": "Design units confirmed"},
+-        {"id": "component_structure", "required": True, "description": "Expected components and bodies verified"},
+-        {"id": "critical_parameters", "required": True, "description": "Critical dimensions or named parameters verified in Fusion"},
+-        {"id": "feature_health", "required": True, "description": "No unresolved feature or timeline failures"},
+-        {"id": "export_selection", "required": True, "description": "Exported body/component matches the intended final candidate"},
++        {"id": "active_document", "required": True, "capability": "inspect_active_document", "description": "Active Fusion document and design context confirmed"},
++        {"id": "safe_checkpoint", "required": True, "capability": "save_checkpoint", "description": "Original design preserved by save, version, copy, or explicit checkpoint"},
++        {"id": "units_confirmed", "required": True, "capability": "read_units", "description": "Design units confirmed"},
++        {"id": "component_structure", "required": True, "capability": "inspect_component_structure", "description": "Expected components and bodies verified"},
++        {"id": "critical_parameters", "required": True, "capability": "read_parameters", "description": "Critical dimensions or named parameters verified in Fusion"},
++        {"id": "feature_health", "required": True, "capability": "inspect_feature_health", "description": "No unresolved feature or timeline failures"},
++        {"id": "export_selection", "required": True, "capability": "export_stl", "description": "Exported body/component matches the intended final candidate"},
+     ]
+     if task_type == "assembly":
+         requirements.extend([
+-            {"id": "joints_verified", "required": True, "description": "Joint type, axis, limits, and intended degrees of freedom verified"},
+-            {"id": "motion_sampled", "required": True, "description": "Neutral, extreme, and representative intermediate positions inspected"},
+-            {"id": "interference_checked", "required": True, "description": "Interference checked at representative positions"},
++            {"id": "joints_verified", "required": True, "capability": "test_joints", "description": "Joint type, axis, limits, and intended degrees of freedom verified"},
++            {"id": "motion_sampled", "required": True, "capability": "test_joints", "description": "Neutral, extreme, and representative intermediate positions inspected"},
++            {"id": "interference_checked", "required": True, "capability": "check_interference", "description": "Interference checked at representative positions"},
+         ])
+     return requirements
+ 
+ 
++def default_part_fusion_requirements() -> list[dict[str, Any]]:
++    return [
++        {"id": "component_present", "required": True, "capability": "inspect_component_structure", "description": "Part component/body exists and is uniquely identifiable"},
++        {"id": "critical_parameters", "required": True, "capability": "read_parameters", "description": "Part-specific critical parameters verified"},
++        {"id": "feature_health", "required": True, "capability": "inspect_feature_health", "description": "Part-specific feature history has no unresolved failures"},
++        {"id": "export_selection", "required": True, "capability": "export_stl", "description": "Correct part body/component selected for export"},
++    ]
++
++
+ def default_engineering_requirements() -> list[dict[str, Any]]:
+     return [
+         {"id": "material_confirmed", "required": False, "description": "Material and manufacturing process confirmed"},
+@@ -50,41 +73,77 @@ def default_engineering_requirements() -> list[dict[str, Any]]:
+     ]
+ 
+ 
+-def default_contract(part_name: str, task_type: str = "part") -> dict[str, Any]:
++def default_mesh_contract() -> dict[str, Any]:
++    return {
++        "expected_dimensions_mm": {
++            "x": {"target": 20.0, "tolerance": 0.1},
++            "y": {"target": 20.0, "tolerance": 0.1},
++            "z": {"target": 10.0, "tolerance": 0.1},
++        },
++        "require_watertight": True,
++        "max_shells": 1,
++        "max_boundary_edges": 0,
++        "max_nonmanifold_edges": 0,
++        "max_degenerate_triangles": 0,
++        "max_duplicate_triangles": 0,
++        "max_inconsistent_winding_edges": 0,
++        "max_sliver_triangles": 0,
++        "min_triangle_quality": 0.01,
++        "min_triangles": 12,
++        "max_triangles": 2_000_000,
++        "require_positive_signed_volume": True,
++    }
++
++
++def default_part(part_id: str, name: str) -> dict[str, Any]:
++    return {
++        "id": part_id,
++        "name": name,
++        "required": True,
++        "mesh": default_mesh_contract(),
++        "fusion_requirements": default_part_fusion_requirements(),
++        "engineering_requirements": [],
++        "notes": ["Replace placeholder mesh dimensions with this part's actual acceptance criteria."],
++    }
++
++
++def default_contract(
++    part_name: str,
++    task_type: str = "part",
++    parts: list[tuple[str, str]] | None = None,
++) -> dict[str, Any]:
+     if task_type not in {"part", "assembly"}:
+         raise GuardianError("task_type must be part or assembly")
+-    return {
++    contract: dict[str, Any] = {
++        "$schema": CONTRACT_SCHEMA_URI,
+         "schema_version": 2,
++        "schema_revision": "2.1",
+         "part_name": part_name,
+         "task_type": task_type,
+         "units": "mm",
+-        "mesh": {
+-            "expected_dimensions_mm": {
+-                "x": {"target": 20.0, "tolerance": 0.1},
+-                "y": {"target": 20.0, "tolerance": 0.1},
+-                "z": {"target": 10.0, "tolerance": 0.1},
+-            },
+-            "require_watertight": True,
+-            "max_shells": 1,
+-            "max_boundary_edges": 0,
+-            "max_nonmanifold_edges": 0,
+-            "max_degenerate_triangles": 0,
+-            "max_duplicate_triangles": 0,
+-            "max_inconsistent_winding_edges": 0,
+-            "max_sliver_triangles": 0,
+-            "min_triangle_quality": 0.01,
+-            "min_triangles": 12,
+-            "max_triangles": 2_000_000,
+-            "require_positive_signed_volume": True,
+-        },
++        "mesh": default_mesh_contract(),
++        "parts": [],
+         "fusion_requirements": default_fusion_requirements(task_type),
+         "engineering_requirements": default_engineering_requirements(),
++        "assembly_requirements": [],
+         "export_provenance_required": True,
++        "resource_limits": DEFAULT_RESOURCE_LIMITS.to_dict(),
+         "notes": [
+             "Replace example dimensions with actual acceptance criteria.",
+             "Mesh checks do not verify wall thickness, joints, strength, or local feature tolerances.",
++            "When parts is non-empty, audit each export with --part-id.",
+         ],
+     }
++    if parts:
++        contract["mesh"] = {}
++        contract["parts"] = [default_part(part_id, name) for part_id, name in parts]
++    return contract
++
++
++def _validate_id(value: Any, name: str) -> str:
++    if not isinstance(value, str) or not ID_PATTERN.fullmatch(value):
++        raise GuardianError(f"{name} must match {ID_PATTERN.pattern}")
++    return value
+ 
+ 
+ def _validate_range(value: Any, name: str) -> None:
+@@ -115,79 +174,107 @@ def _validate_requirements(items: Any, name: str) -> list[dict[str, Any]]:
+     for index, item in enumerate(items):
+         if not isinstance(item, dict):
+             raise GuardianError(f"{name}[{index}] must be an object")
+-        unknown = set(item) - {"id", "required", "description"}
++        unknown = set(item) - REQUIREMENT_KEYS
+         if unknown:
+             raise GuardianError(f"{name}[{index}] has unknown keys: {sorted(unknown)}")
+-        check_id = item.get("id")
+-        if not isinstance(check_id, str) or not check_id.strip():
+-            raise GuardianError(f"{name}[{index}].id must be a non-empty string")
++        check_id = _validate_id(item.get("id"), f"{name}[{index}].id")
+         if check_id in seen:
+-            raise GuardianError(f"duplicate requirement id: {check_id}")
