@@ -1,0 +1,22 @@
+h) if args.source_mesh else None,
++        part_id=args.part_id,
++        contract_path=Path(args.contract) if args.contract else None,
++        limits=_resource_limits(args),
++    )
++    _write_outputs(report, args, render_slicer_markdown, render_slicer_html)
+     print(json.dumps(report, indent=2, ensure_ascii=False))
+     return 1 if report["verdict"] == "FAIL" else 0
+ 
+ 
+ def _cmd_compare(args: argparse.Namespace) -> int:
+     comparison = compare_reports(load_json(Path(args.before)), load_json(Path(args.after)))
+-    if args.json_out:
+-        write_json(Path(args.json_out), comparison)
+-    if args.markdown:
+-        write_text(Path(args.markdown), render_compare_markdown(comparison))
++    _write_outputs(comparison, args, render_compare_markdown, render_compare_html)
+     print(json.dumps(comparison, indent=2, ensure_ascii=False))
+     return 1 if comparison["comparison_verdict"] == "REGRESSION" else 0
+ 
+@@ -214,15 +246,15 @@ def _cmd_batch(args: argparse.Namespace) -> int:
+     
