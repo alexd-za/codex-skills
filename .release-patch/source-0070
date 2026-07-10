@@ -1,0 +1,96 @@
+le
+ from guardian_lib.capabilities import (
+     CAPABILITY_KEYS,
+     build_verification_plan,
+@@ -22,6 +24,7 @@ from guardian_lib.capabilities import (
+     validate_capability_profile,
+ )
+ from guardian_lib.contracts import (
++    CONTRACT_SCHEMA_URI,
+     default_contract as _default_contract,
+     default_part,
+     validate_contract,
+@@ -31,8 +34,11 @@ from guardian_lib.core import cube_triangles as _cube_triangles
+ from guardian_lib.core import write_binary_stl as _write_binary_stl
+ from guardian_lib.errors import GuardianError
+ from guardian_lib.evidence import default_evidence, populate_export_hashes, validate_evidence
+-from guardian_lib.limits import ResourceLimits
++from guardian_lib.html_report import render_audit_html, render_compare_html, render_gate_html, render_slicer_html
++from guardian_lib.limits import DEFAULT_RESOURCE_LIMITS, ResourceLimits
++from guardian_lib.meshio import inspect_3mf
+ from guardian_lib.reports import (
++    audit_mesh,
+     audit_stl,
+     compare_reports,
+     create_project,
+@@ -40,12 +46,14 @@ from guardian_lib.reports import (
+     render_audit_markdown,
+     render_compare_markdown,
+     render_gate_markdown,
++    render_slicer_markdown,
+     run_gate,
+     run_self_test,
+     validate_audit_report,
+     write_json,
+     write_text,
+ )
++from guardian_lib.slicer import build_slicer_report, validate_slicer_report
+ 
+ 
+ def _parse_part(value: str) -> tuple[str, str]:
+@@ -63,9 +71,21 @@ def _resource_limits(args: argparse.Namespace) -> ResourceLimits:
+         max_triangles=args.max_input_triangles,
+         max_coordinate_abs_mm=args.max_coordinate_abs_mm,
+         max_estimated_memory_mb=args.max_estimated_memory_mb,
++        max_archive_entries=args.max_archive_entries,
++        max_archive_uncompressed_mb=args.max_archive_uncompressed_mb,
++        max_compression_ratio=args.max_compression_ratio,
+     ).validate()
+ 
+ 
++def _write_outputs(data: dict[str, Any], args: argparse.Namespace, markdown_renderer=None, html_renderer=None) -> None:
++    if getattr(args, "json_out", None):
++        write_json(Path(args.json_out), data)
++    if getattr(args, "markdown", None) and markdown_renderer:
++        write_text(Path(args.markdown), markdown_renderer(data))
++    if getattr(args, "html", None) and html_renderer:
++        write_text(Path(args.html), html_renderer(data))
++
++
+ def _cmd_init(args: argparse.Namespace) -> int:
+     output = Path(args.out)
+     if output.exists() and not args.force:
+@@ -81,9 +101,8 @@ def _cmd_part_add(args: argparse.Namespace) -> int:
+     if contract.get("schema_version") != 2:
+         raise GuardianError("part-add requires a schema-version 2 contract")
+     if contract.get("mesh"):
+-        if args.keep_top_level_mesh:
+-            raise GuardianError("cannot keep top-level mesh when adding parts; multi-part contracts use parts[].mesh")
+         contract["mesh"] = {}
++        contract["slicer"] = {}
+     if any(part["id"] == args.id for part in contract.get("parts", [])):
+         raise GuardianError(f"part id already exists: {args.id}")
+     contract.setdefault("parts", []).append(default_part(args.id, args.name))
+@@ -97,9 +116,7 @@ def _cmd_part_add(args: argparse.Namespace) -> int:
+ 
+ 
+ def _cmd_project(args: argparse.Namespace) -> int:
+-    result = create_project(
+-        Path(args.directory), args.name, args.task_type, parts=args.part or None
+-    )
++    result = create_project(Path(args.directory), args.name, args.task_type, parts=args.part or None)
+     print(json.dumps(result, indent=2, ensure_ascii=False))
+     return 0
+ 
+@@ -135,12 +152,8 @@ def _cmd_capabilities_init(args: argparse.Namespace) -> int:
+ def _cmd_capabilities_set(args: argparse.Namespace) -> int:
+     path = Path(args.profile)
+     profile = set_capability(
+-        load_json(path),
+-        args.capability,
+-        args.status,
+-        tool=args.tool or "",
+-        method=args.method or "",
+-        notes=args.notes or "",
++        load_json(path), args.capability, args.status,
++     
