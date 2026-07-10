@@ -3,6 +3,7 @@ name: Apply Fusion CAD Guardian v2.2.0
 on:
   pull_request_target:
     types: [opened, synchronize, reopened]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -10,15 +11,16 @@ permissions:
 jobs:
   apply-and-verify:
     if: >-
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      github.event.pull_request.head.ref == 'release/fusion-cad-guardian-v2.2.0'
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.head.ref == 'release/fusion-cad-guardian-v2.2.0')
     runs-on: ubuntu-latest
     steps:
       - name: Check out release branch
         uses: actions/checkout@v4
         with:
           repository: ${{ github.repository }}
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: release/fusion-cad-guardian-v2.2.0
           fetch-depth: 0
 
       - name: Verify and apply exact source patch
