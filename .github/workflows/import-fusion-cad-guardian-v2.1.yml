@@ -18,8 +18,21 @@ jobs:
         run: |
           set -euo pipefail
           test -f .skill-payload/READY
-          test -f .skill-payload/v2.1.0.source.part000
-          cat .skill-payload/v2.1.0.source.part* > /tmp/fusion-cad-guardian-v2.1.0.patch
+          test -f .skill-payload/v2.1.0.patch.part000
+          test -f .skill-payload/v2.1.0.patch.part001
+          test -f .skill-payload/v2.1.0.patch.part002
+          test -f .skill-payload/v2.1.0.source.part003
+          cat \
+            .skill-payload/v2.1.0.patch.part000 \
+            .skill-payload/v2.1.0.patch.part001 \
+            .skill-payload/v2.1.0.patch.part002 \
+            .skill-payload/v2.1.0.source.part003 \
+            .skill-payload/v2.1.0.source.part004 \
+            .skill-payload/v2.1.0.source.part005 \
+            .skill-payload/v2.1.0.source.part006 \
+            .skill-payload/v2.1.0.source.part007 \
+            .skill-payload/v2.1.0.source.part008 \
+            > /tmp/fusion-cad-guardian-v2.1.0.patch
           expected="$(tr -d '\r\n' < .skill-payload/READY)"
           actual="$(sha256sum /tmp/fusion-cad-guardian-v2.1.0.patch | awk '{print $1}')"
           test "$actual" = "$expected"
