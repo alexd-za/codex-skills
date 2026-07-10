@@ -1,0 +1,122 @@
+limit_arguments(batch)
+-    batch.set_defaults(func=_cmd_batch)
+-
+-    acceptance = sub.add_parser("gate", help="combine Fusion evidence and mesh reports into an acceptance verdict")
+-    acceptance.add_argument("--contract", required=True)
+-    acceptance.add_argument("--evidence", required=True)
+-    acceptance.add_argument("--mesh-report", action="append", required=True)
+-    acceptance.add_argument("--json", dest="json_out")
+-    acceptance.add_argument("--markdown")
+-    acceptance.set_defaults(func=_cmd_gate)
+-
+-    self_test = sub.add_parser("self-test", help="run built-in validation tests")
+-    self_test.set_defaults(func=_cmd_self_test)
++    validate.add_argument("kind", choices=("contract", "evidence", "capabilities", "audit-report", "slicer-report", "bundle-manifest")); validate.add_argument("file"); validate.set_defaults(func=_cmd_validate)
++
++    audit = sub.add_parser("audit", help="audit an STL or selected 3MF object")
++    audit.add_argument("mesh"); audit.add_argument("--contract"); audit.add_argument("--part-id")
++    audit.add_argument("--object-id"); audit.add_argument("--object-name"); _add_report_outputs(audit)
++    audit.add_argument("--weld-tolerance", type=float, default=1e-6); audit.add_argument("--area-epsilon", type=float, default=1e-12)
++    audit.add_argument("--sliver-quality-threshold", type=float, default=0.05); _add_resource_limit_arguments(audit); audit.set_defaults(func=_cmd_audit)
++
++    inspect = sub.add_parser("inspect-3mf", help="list 3MF objects and build items without auditing")
++    inspect.add_argument("mesh"); inspect.add_argument("--json", dest="json_out"); _add_resource_limit_arguments(inspect); inspect.set_defaults(func=_cmd_inspect_3mf)
++
++    slicer = sub.add_parser("slicer-audit", help="parse existing G-code into source-linked manufacturing evidence")
++    slicer.add_argument("gcode"); slicer.add_argument("--source-mesh"); slicer.add_argument("--contract"); slicer.add_argument("--part-id")
++    _add_report_outputs(slicer); _add_resource_limit_arguments(slicer); slicer.set_defaults(func=_cmd_slicer_audit)
++
++    compare = sub.add_parser("compare", help="compare two audit reports for the same part/object")
++    compare.add_argument("before"); compare.add_argument("after"); _add_report_outputs(compare); compare.set_defaults(func=_cmd_compare)
++
++    batch = sub.add_parser("batch", help="audit STL/3MF jobs from a batch manifest")
++    batch.add_argument("manifest"); batch.add_argument("--out-dir", required=True)
++    batch.add_argument("--weld-tolerance", type=float, default=1e-6); batch.add_argument("--area-epsilon", type=float, default=1e-12)
++    batch.add_argument("--sliver-quality-threshold", type=float, default=0.05); _add_resource_limit_arguments(batch); batch.set_defaults(func=_cmd_batch)
++
++    acceptance = sub.add_parser("gate", help="combine Fusion, mesh, and optional slicer evidence")
++    acceptance.add_argument("--contract", required=True); acceptance.add_argument("--evidence", required=True)
++    acceptance.add_argument("--mesh-report", action="append", required=True); acceptance.add_argument("--slicer-report", action="append")
++    _add_report_outputs(acceptance); acceptance.set_defaults(func=_cmd_gate)
++
++    bundle = sub.add_parser("bundle", help="create an integrity-checked verification bundle from a Guardian project")
++    bundle.add_argument("--project", required=True); bundle.add_argument("--out", required=True); bundle.add_argument("--include-exports", action="store_true"); _add_resource_limit_arguments(bundle); bundle.set_defaults(func=_cmd_bundle)
++    bundle_verify = sub.add_parser("bundle-verify", help="verify a Guardian bundle manifest and all file hashes")
++    bundle_verify.add_argument("bundle"); bundle_verify.add_argument("--json", dest="json_out"); _add_resource_limit_arguments(bundle_verify); bundle_verify.set_defaults(func=_cmd_bundle_verify)
++
++    migrate = sub.add_parser("migrate", help="migrate a schema-version 2 contract to revision 2.2")
++    migrate.add_argument("contract"); migrate.add_argument("--out"); migrate.add_argument("--force", action="store_true"); migrate.set_defaults(func=_cmd_migrate)
++    doctor = sub.add_parser("doctor", help="run installation and optional project diagnostics")
++    doctor.add_argument("--project"); doctor.add_argument("--json", dest="json_out"); doctor.set_defaults(func=_cmd_doctor)
++    self_test = sub.add_parser("self-test", help="run built-in validation tests"); self_test.set_defaults(func=_cmd_self_test)
+     return parser
+ 
+ 
+diff --git a/skills/fusion-cad-guardian/scripts/guardian_lib/__init__.py b/skills/fusion-cad-guardian/scripts/guardian_lib/__init__.py
+index 30bd220..9ec4481 100644
+--- a/skills/fusion-cad-guardian/scripts/guardian_lib/__init__.py
++++ b/skills/fusion-cad-guardian/scripts/guardian_lib/__init__.py
+@@ -1,3 +1,3 @@
+ """Fusion CAD Guardian implementation package."""
+ 
+-VERSION = "2.1.0"
++VERSION = "2.2.0"
+diff --git a/skills/fusion-cad-guardian/scripts/guardian_lib/capabilities.py b/skills/fusion-cad-guardian/scripts/guardian_lib/capabilities.py
+index 137842e..64063b6 100644
+--- a/skills/fusion-cad-guardian/scripts/guardian_lib/capabilities.py
++++ b/skills/fusion-cad-guardian/scripts/guardian_lib/capabilities.py
+@@ -24,6 +24,7 @@ CAPABILITY_KEYS = (
+     "test_joints",
+     "check_interference",
+     "export_stl",
++    "export_3mf",
+     "capture_viewport",
+ )
+ VALID_CAPABILITY_STATUSES = {"available", "unavailable", "unknown"}
+diff --git a/skills/fusion-cad-guardian/scripts/guardian_lib/contracts.py b/skills/fusion-cad-guardian/scripts/guardian_lib/contracts.py
+index 38f1fcf..34e0915 100644
+--- a/skills/fusion-cad-guardian/scripts/guardian_lib/contracts.py
++++ b/skills/fusion-cad-guardian/scripts/guardian_lib/contracts.py
+@@ -11,6 +11,13 @@ CONTRACT_SCHEMA_URI = (
+     "fusion-cad-guardian/schemas/contract.schema.json"
+ )
+ 
++SLICER_KEYS = {
++    "required", "require_source_mesh_hash", "required_metadata_fields",
++    "print_time_seconds", "filament_mm", "filament_cm3", "filament_g",
++    "layer_count", "layer_height_mm", "first_layer_height_mm", "max_z_mm",
++    "allowed_nozzle_diameters_mm",
++}
++
+ MESH_KEYS = {
+     "expected_dimensions_mm", "volume_mm3", "surface_area_mm2", "mass_g",
+     "density_g_cm3", "require_watertight", "max_shells", "max_boundary_edges",
+@@ -22,14 +29,14 @@ MESH_KEYS = {
+ TOP_LEVEL_V2_KEYS = {
+     "$schema", "schema_version", "schema_revision", "part_name", "task_type", "units", "mesh",
+     "parts", "fusion_requirements", "engineering_requirements", "assembly_requirements",
+-    "export_provenance_required", "resource_limits", "notes",
++    "export_provenance_required", "resource_limits", "slicer", "notes",
+ }
+ TOP_LEVEL_V1_KEYS = {
+     "$schema", "schema_version", "part_name", "units", *MESH_KEYS, "notes",
+ }
+ PART_KEYS = {
+     "id", "name", "required", "mesh", "fusion_requirements",
+-    "engineering_requirements", "notes",
++    "engineering_requirements", "slicer", "notes",
+ }
+ REQUIREMENT_KEYS = {"id", "required", "description", "capability"}
+ VALID_STATUSES = {"PASS", "FAIL", "NOT_VERIFIED", "NOT_APPLICABLE"}
+@@ -70,6 +77,7 @@ def default_engineering_requirements() -> list[dict[str, Any]]:
+         {"id": "loads_reviewed", "required": False, "description": "Expected loads, torque, impact, and safety factors reviewed"},
+         {"id": "tolerances_reviewed", "required": False, "description": "Fits, clearances, shrinkage, and manufacturing tolerances reviewed"},
+         {"id": "physical_test_planned", "required": False, "description": "Physical fit/function test planned before competition or deployment"},
++        {"id": "slicer_reviewed", "required": False, "description": "Slicer output and manufacturing metadata reviewed when applicable"},
+     ]
+ 
+ 
+@@ -103,6 +111,7 @@ def default_part(part_id: str, name: str) -> dict[str, Any]:
+         "mesh": default_mesh_contract(),
+         "fusion_requirements": default_part_fusion_requirements(),
+         "engineering_requireme
