@@ -1,0 +1,42 @@
+name: Test Fusion CAD Guardian
+
+on:
+  push:
+    paths:
+      - 'skills/fusion-cad-guardian/**'
+      - '.github/workflows/test-fusion-cad-guardian.yml'
+  pull_request:
+    paths:
+      - 'skills/fusion-cad-guardian/**'
+      - '.github/workflows/test-fusion-cad-guardian.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ['3.10', '3.12']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Compile
+        run: python -m compileall -q skills/fusion-cad-guardian/scripts skills/fusion-cad-guardian/tests
+      - name: Unit tests
+        run: python -m unittest discover -s skills/fusion-cad-guardian/tests -v
+      - name: Built-in self-test
+        run: python skills/fusion-cad-guardian/scripts/guardian.py self-test
+      - name: Validate example contract
+        run: python skills/fusion-cad-guardian/scripts/guardian.py validate contract skills/fusion-cad-guardian/assets/contract.example.json
+      - name: Validate example evidence
+        run: python skills/fusion-cad-guardian/scripts/guardian.py validate evidence skills/fusion-cad-guardian/assets/evidence.example.json
+      - name: Test PowerShell wrapper
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./skills/fusion-cad-guardian/scripts/guardian.ps1 self-test
