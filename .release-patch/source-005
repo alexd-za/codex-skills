@@ -1,0 +1,231 @@
+t-record.schema.json
++schemas/slicer-report.schema.json
+ scripts/guardian.ps1
+ scripts/guardian.py
+ scripts/guardian_lib/__init__.py
++scripts/guardian_lib/bundle.py
+ scripts/guardian_lib/capabilities.py
+ scripts/guardian_lib/contracts.py
+ scripts/guardian_lib/core.py
+ scripts/guardian_lib/errors.py
+ scripts/guardian_lib/evidence.py
++scripts/guardian_lib/html_report.py
+ scripts/guardian_lib/limits.py
++scripts/guardian_lib/meshio.py
+ scripts/guardian_lib/reports.py
++scripts/guardian_lib/slicer.py
+ tests/schema_conformance.py
+ tests/test_guardian.py
++tests/test_v22.py
+diff --git a/skills/fusion-cad-guardian/references/acceptance-gate.md b/skills/fusion-cad-guardian/references/acceptance-gate.md
+index 84bebed..0cc600c 100644
+--- a/skills/fusion-cad-guardian/references/acceptance-gate.md
++++ b/skills/fusion-cad-guardian/references/acceptance-gate.md
+@@ -31,3 +31,8 @@ Every `parts[]` entry with `required: true` needs a current passing report. Miss
+ 4. Everything passes -> `PASS`.
+ 
+ A conditional pass is not permission to skip safety-critical engineering review.
++
++
++## Slicer evidence
++
++When a project or part sets `slicer.required: true`, the gate requires a current passing slicer report. If source-mesh linkage is required, its SHA-256 must match the current mesh report for that part.
+diff --git a/skills/fusion-cad-guardian/references/capability-boundaries.md b/skills/fusion-cad-guardian/references/capability-boundaries.md
+index 2e90b80..eebe291 100644
+--- a/skills/fusion-cad-guardian/references/capability-boundaries.md
++++ b/skills/fusion-cad-guardian/references/capability-boundaries.md
+@@ -43,3 +43,8 @@ Record these results in the evidence ledger.
+ - rules compliance.
+ 
+ Use the proper Fusion tool, calculation, simulation, slicer, physical test, or human review. Otherwise mark the claim `NOT_VERIFIED`.
++
++
++## v2.2 exported-file boundary
++
++Guardian may inspect STL, the supported core subset of 3MF, and metadata in an existing G-code file. This remains exported-file evidence. It does not authorize live Fusion changes, slicer execution, or claims about physical manufacture.
+diff --git a/skills/fusion-cad-guardian/references/json-schemas.md b/skills/fusion-cad-guardian/references/json-schemas.md
+index 0868b44..b9fb621 100644
+--- a/skills/fusion-cad-guardian/references/json-schemas.md
++++ b/skills/fusion-cad-guardian/references/json-schemas.md
+@@ -20,3 +20,9 @@ py -3 scripts/guardian.py validate audit-report reports/part.json
+ ```
+ 
+ The published schemas are for editor completion, external validation, CI, interoperability, and versioned documentation. Runtime validation does not require the third-party `jsonschema` package.
++
++
++Additional v2.2 schemas:
++
++- `slicer-report.schema.json`;
++- `bundle-manifest.schema.json`.
+diff --git a/skills/fusion-cad-guardian/references/resource-limits.md b/skills/fusion-cad-guardian/references/resource-limits.md
+index b424db7..5227d6e 100644
+--- a/skills/fusion-cad-guardian/references/resource-limits.md
++++ b/skills/fusion-cad-guardian/references/resource-limits.md
+@@ -28,3 +28,8 @@ py -3 scripts/guardian.py audit part.stl `
+ A contract may contain `resource_limits`. Contract values can only tighten the CLI/default limits; they cannot silently loosen them. This prevents a generated contract from disabling safety controls.
+ 
+ Exceeding a resource limit returns exit code `2` and no acceptance result. It is an input-safety failure, not a failed geometric requirement.
++
++
++## Archive limits
++
++3MF and verification bundles also enforce archive-entry count, total expanded size, and compression-ratio limits. These checks run before XML, manifest, or mesh processing.
+diff --git a/skills/fusion-cad-guardian/schemas/audit-report.schema.json b/skills/fusion-cad-guardian/schemas/audit-report.schema.json
+index a79c737..78570c8 100644
+--- a/skills/fusion-cad-guardian/schemas/audit-report.schema.json
++++ b/skills/fusion-cad-guardian/schemas/audit-report.schema.json
+@@ -1,39 +1,128 @@
+ {
+   "$schema": "https://json-schema.org/draft/2020-12/schema",
+   "$id": "https://raw.githubusercontent.com/alexd-za/codex-skills/main/skills/fusion-cad-guardian/schemas/audit-report.schema.json",
+-  "title": "Fusion CAD Guardian STL Audit Report",
++  "title": "Fusion CAD Guardian Mesh Audit Report",
+   "type": "object",
+-  "required": ["guardian_version", "generated_at", "mesh", "contract", "resource_limits", "input_preflight", "metrics", "checks", "verdict", "limitations"],
++  "required": [
++    "guardian_version",
++    "generated_at",
++    "mesh",
++    "contract",
++    "resource_limits",
++    "input_preflight",
++    "metrics",
++    "checks",
++    "verdict",
++    "limitations"
++  ],
+   "properties": {
+-    "$schema": {"type": "string"},
+-    "guardian_version": {"type": "string"},
+-    "generated_at": {"type": "string"},
++    "$schema": {
++      "type": "string"
++    },
++    "guardian_version": {
++      "type": "string"
++    },
++    "generated_at": {
++      "type": "string"
++    },
+     "mesh": {
+       "type": "object",
+-      "required": ["path", "sha256", "format", "size_bytes"],
++      "required": [
++        "path",
++        "sha256",
++        "format",
++        "size_bytes",
++        "source_metadata"
++      ],
+       "properties": {
+-        "path": {"type": "string"},
+-        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+-        "format": {"enum": ["ascii", "binary"]},
+-        "size_bytes": {"type": "integer", "minimum": 0}
++        "path": {
++          "type": "string"
++        },
++        "sha256": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}$"
++        },
++        "format": {
++          "enum": [
++            "stl-ascii",
++            "stl-binary",
++            "3mf"
++          ]
++        },
++        "size_bytes": {
++          "type": "integer",
++          "minimum": 0
++        },
++        "source_metadata": {
++          "type": "object"
++        }
+       }
+     },
+     "contract": {
+       "type": "object",
+       "properties": {
+-        "path": {"type": ["string", "null"]},
+-        "sha256": {"type": ["string", "null"]},
+-        "schema_version": {"type": ["integer", "null"]},
+-        "schema_revision": {"type": ["string", "null"]},
+-        "part_id": {"type": ["string", "null"]},
+-        "part_name": {"type": ["string", "null"]}
++        "path": {
++          "type": [
++            "string",
++            "null"
++          ]
++        },
++        "sha256": {
++          "type": [
++            "string",
++            "null"
++          ]
++        },
++        "schema_version": {
++          "type": [
++            "integer",
++            "null"
++          ]
++        },
++        "schema_revision": {
++          "type": [
++            "string",
++            "null"
++          ]
++        },
++        "part_id": {
++          "type": [
++            "string",
++            "null"
++          ]
++        },
++        "part_name": {
++          "type": [
++            "string",
++            "null"
++          ]
++        }
+       }
+     },
+-    "resource_limits": {"type": "object"},
+-    "input_preflight": {"type": "object"},
+-    "metrics": {"type": "object"},
+-    "checks": {"type": "array"},
+-    "verdict": {"enum": ["PASS", "FAIL", "AUDIT_ONLY"]},
+-    "limitations": {"type": "array", "items": {"type": "string"}}
++    "resource_limits": {
++      "type": "object"
++    },
++    "input_preflight": {
++      "type": "object"
++    },
++    "metrics": {
++      "type": "object"
++    },
++    "checks": {
++      "type": "array"
++    },
++    "verdict": {
++      "enum": [
++        "PASS",
++        "FAIL",
++        "AUDIT_ONLY"
++      ]
++    },
++    "limitations": {
++      "type": "array",
++      "items": {
++        "type": "string"
++      }
++    }
+   }
+ }
+diff --git a/skills/fusion-cad-guardian/schemas/capability-profile.schema.json b/skills/fusion-cad-guardian/schemas/capability-profile.schema.json
+index e4e493e..d4fbdbf 100644
+--- a/skills/fusion-cad-guardian/schemas/capability-profile.schema.json
++++ b/skills/fusion-cad-guardian
