@@ -1,0 +1,376 @@
+diff --git a/.github/workflows/test-fusion-cad-guardian.yml b/.github/workflows/test-fusion-cad-guardian.yml
+index a401da5b8b11202fa57526c3660776f3601c3bb2..dba3aa55c2f02081d692bbd2733619baa75dc6ae 100644
+--- a/.github/workflows/test-fusion-cad-guardian.yml
++++ b/.github/workflows/test-fusion-cad-guardian.yml
+@@ -36,6 +36,13 @@ jobs:
+         run: python skills/fusion-cad-guardian/scripts/guardian.py validate contract skills/fusion-cad-guardian/assets/contract.example.json
+       - name: Validate example evidence
+         run: python skills/fusion-cad-guardian/scripts/guardian.py validate evidence skills/fusion-cad-guardian/assets/evidence.example.json
++      - name: Validate example capability profile
++        run: python skills/fusion-cad-guardian/scripts/guardian.py validate capabilities skills/fusion-cad-guardian/assets/capabilities.example.json
++      - name: JSON Schema conformance
++        shell: bash
++        run: |
++          python -m pip install "jsonschema>=4.23,<5"
++          python skills/fusion-cad-guardian/tests/schema_conformance.py
+       - name: Test PowerShell wrapper
+         if: runner.os == 'Windows'
+         shell: pwsh
+diff --git a/README.md b/README.md
+index 878757f239eba45bedd3ea3eccd33f16cd285cb5..3acbc6a0dcd01cc75cc8f5197afb130f3893bf85 100644
+--- a/README.md
++++ b/README.md
+@@ -1,12 +1,12 @@
+ # codex-skills
+ 
+-Custom Codex skills, plugins, scripts, and reusable agent workflows.
++Custom Codex skills, scripts, and reusable agent workflows.
+ 
+ ## Available skills
+ 
+-### Fusion CAD Guardian — v2.0.0
++### Fusion CAD Guardian — v2.1.0
+ 
+-A verification and acceptance layer that works **alongside Autodesk Fusion MCP**. Fusion MCP remains responsible for all live CAD operations; Guardian adds contracts, evidence tracking, export provenance, deterministic STL audits, regression comparison, and acceptance gates.
++A verification and acceptance layer that works **alongside Autodesk Fusion MCP**. Fusion MCP remains responsible for every live CAD operation; Guardian adds design contracts, capability routing, evidence tracking, export provenance, multi-part completeness, deterministic STL auditing, resource limits, regression comparison, and final acceptance gates.
+ 
+ Install with Codex:
+ 
+@@ -14,7 +14,7 @@ Install with Codex:
+ $skill-installer install https://github.com/alexd-za/codex-skills/tree/main/skills/fusion-cad-guardian
+ ```
+ 
+-Then restart Codex and run:
++Then restart Codex and verify locally:
+ 
+ ```powershell
+ py -3 "$HOME\.agents\skills\fusion-cad-guardian\scripts\guardian.py" self-test
+@@ -22,8 +22,9 @@ py -3 "$HOME\.agents\skills\fusion-cad-guardian\scripts\guardian.py" self-test
+ 
+ [Open the skill directory](./skills/fusion-cad-guardian)
+ 
+-## Version history
++## Release history
+ 
++- **v2.1.0** — JSON Schemas, MCP capability profiles, resource limits, and first-class multi-part verification.
+ - **v2.0.0** — evidence ledger, export provenance, enhanced mesh analysis, and acceptance gate.
+ - **v1.0.0** — initial STL audit and design-contract workflow.
+ 
+diff --git a/skills/fusion-cad-guardian/CHANGELOG.md b/skills/fusion-cad-guardian/CHANGELOG.md
+index f105c615a31ef51480162d6c27e9b8c1fef72c27..3eb7de47bcd3a7ad8fcdf8c28f6ebcd34319acbf 100644
+--- a/skills/fusion-cad-guardian/CHANGELOG.md
++++ b/skills/fusion-cad-guardian/CHANGELOG.md
+@@ -1,5 +1,33 @@
+ # Changelog
+ 
++## 2.1.0 — 2026-07-10
++
++Focused interoperability, safety, and multi-part release.
++
++### Added
++
++- JSON Schema Draft 2020-12 documents for contracts, evidence ledgers, export records, capability profiles, and audit reports.
++- `$schema` links in generated contract, evidence, capability, and audit artifacts.
++- Fusion MCP capability profiles with `available`, `unavailable`, and `unknown` states.
++- `capabilities-init`, `capabilities-set`, and `plan` commands.
++- Requirement-to-capability routing that reports `READY`, `DISCOVERY_REQUIRED`, or `BLOCKED` without invoking live CAD operations.
++- Multi-part contracts with stable `part_id`, part-specific mesh criteria, namespaced evidence, and part-linked export provenance.
++- `--part` project/init scaffolding, `part-add`, and `--part-id` auditing.
++- Final-gate completeness checks for every required part.
++- STL preflight limits for file size, triangle count, coordinate magnitude, and estimated Python memory.
++- Contract-level resource limits that may tighten but never silently loosen runtime limits.
++- Validation for capability profiles and audit reports.
++- 21-unit-test suite covering new capability, resource, schema, and multi-part behavior.
++
++### Changed
++
++- Contract schema revision is now `2.1` while retaining `schema_version: 2` compatibility.
++- Fusion requirements may declare a capability mapping.
++- Project scaffolds now include `capabilities.json`.
++- Batch jobs may include `part_id`.
++- Regression comparison refuses reports for different part identities.
++- Audit reports now include effective resource limits and input-preflight evidence.
++
+ ## 2.0.0 — 2026-07-10
+ 
+ Major verification-layer release.
+diff --git a/skills/fusion-cad-guardian/README.md b/skills/fusion-cad-guardian/README.md
+index 225b708b72b82f38f8c482dff8225ad581609825..ac9c19d2c128db2f122ec8ef731f492611cf77d8 100644
+--- a/skills/fusion-cad-guardian/README.md
++++ b/skills/fusion-cad-guardian/README.md
+@@ -1,124 +1,137 @@
+-# Fusion CAD Guardian
++# Fusion CAD Guardian 2.1.0
+ 
+-A Codex skill that works **alongside Autodesk Fusion MCP** to make AI-assisted CAD more testable.
++A Codex skill that works **alongside Autodesk Fusion MCP** as a verification and acceptance layer.
+ 
+-Fusion MCP performs live CAD operations. Guardian adds a design contract, structured semantic verification, deterministic STL mesh checks, regression comparison, and an evidence-based repair loop.
++Fusion MCP controls the live Fusion design. Guardian adds:
+ 
+-## The capability it adds
+-
+-A normal MCP connection can create and inspect a design, but it does not automatically give Codex a repeatable acceptance test. Guardian adds:
+-
+-- explicit pass/fail criteria before modeling;
+-- separation of Fusion-semantic checks from exported-mesh checks;
+-- deterministic STL auditing without third-party Python packages;
+-- JSON and Markdown evidence reports;
++- explicit single-part and multi-part design contracts;
++- a capability profile for the connected Fusion MCP server;
++- capability-aware verification planning without assuming tool names;
++- structured Fusion, engineering, and manufacturing evidence;
++- SHA-256 export provenance;
++- resource-limited deterministic STL auditing;
+ - before/after regression detection;
+-- a bounded repair workflow that avoids blindly regenerating a full design.
++- a final `PASS`, `CONDITIONAL_PASS`, `INCOMPLETE`, or `FAIL` gate.
+ 
+-It deliberately does **not** install an arbitrary Python execution bridge inside Fusion.
++Guardian never edits Fusion, installs an add-in, or executes arbitrary Python inside Fusion.
+ 
+-## Requirements
++## Install
++
++```text
++$skill-installer install https://github.com/alexd-za/codex-skills/tree/main/skills/fusion-cad-guardian
++```
+ 
+-- Windows with native Codex
+-- Autodesk Fusion and a connected Fusion MCP server
+-- Python 3.10 or newer for STL auditing
+-- STL exports in millimetres
++Restart Codex after installation.
+ 
+-No Python packages need to be installed.
++## Requirements
+ 
+-## Install with Skill Installer
++- native Windows Codex;
++- Autodesk Fusion with a connected Fusion MCP server;
++- Python 3.10 or newer for local verification scripts;
++- STL exports in millimetres.
+ 
+-The documented, reliable route is to place this folder in a GitHub repository and install the folder URL.
++No third-party Python packages are required.
+ 
+-Example repository layout:
++## Verify
+ 
+-```text
+-my-codex-skills/
+-└── fusion-cad-guardian/
+-    ├── SKILL.md
+-    ├── scripts/
+-    ├── references/
+-    ├── assets/
+-    └── agents/
++```powershell
++py -3 "$HOME\.agents\skills\fusion-cad-guardian\scripts\guardian.py" self-test
+ ```
+ 
+-In Codex, invoke the built-in installer and provide the directory URL:
++## v2.1 additions
+ 
+-```text
+-$skill-installer install https://github.com/YOUR-NAME/my-codex-skills/tree/main/fusion-cad-guardian
+-```
++### Formal JSON Schemas
+ 
+-Some Codex interfaces expose the installer through a slash command or skill picker. The important part is supplying the GitHub **directory** containing `SKILL.md`.
++Draft 2020-12 schemas are included for contracts, evidence ledgers, export records, capability profiles, and audit reports. Runtime validation remains dependency-free.
+ 
+-Restart Codex if the new skill does not appear automatically.
++### Fusion MCP capability profile
+ 
+-## Local manual installation
++Guardian records which capabilities the connected server actually exposes. It requires a concrete tool or method before marking a capability available and can produce a routing plan showing `READY`, `DISCOVERY_REQUIRED`, or `BLOCKED` requirements.
+ 
+-Copy the complete folder to:
++### Mesh resource limits
+ 
+-```text
+-%USERPROFILE%\.agents\skills\fusion-cad-guardian
+-```
++Before loading an STL, Guardian checks:
+ 
+-Then restart Codex.
++- file size;
++- declared or observed triangle count;
++- coordinate magnitude;
++- estimated Python analysis memory.
+ 
+-## Verify the installation
++Contracts may tighten these limits but cannot silently loosen runtime limits.
+ 
+-From PowerShell:
++### Multi-part contracts
+ 
+-```powershell
+-py -3 "$HOME\.agents\skills\fusion-cad-guardian\scripts\guardian.py" self-test
+-```
++A single contract can define several required manufacturing outputs. Each part receives:
+ 
+-Expected result:
++- a stable `part_id`;
++- its own mesh acceptance criteria;
++- namespaced evidence requirements;
++- part-linked export provenance;
++- a required current report at the final gate.
+ 
+-```json
+-{
+-  "passed": true
+-}
+-```
++## Create a multi-part project
+ 
+-## Typical use
++```powershell
++py -3 .\scripts\guardian.py project .\guardian-project `
++  --name "Rover Camera Mount" `
++  --task-type assembly `
++  --part "camera_bracket=Camera Bracket" `
++  --part "sensor_cover=Sensor Cover"
++```
+ 
+-In Codex:
++This creates:
+ 
+ ```text
+-Use $fusion-cad-guardian with my connected Autodesk Fusion MCP server.
+-Create a 3D-printable camera bracket, define measurable acceptance criteria first,
+-verify the Fusion feature structure and critical dimensions, export the final body
+-to STL, audit it, and do not claim anything that was not actually verified.
++guardian-project/
++├── contract.json
++├── evidence.json
++├── capabilities.json
++├── batch.json
++├── TASK.md
++├── exports/
++├── reports/
++└── snapshots/
+ ```
+ 
+-Or explicitly audit an existing STL:
++## Profile the connected Fusion MCP
+ 
+ ```powershell
+-py -3 .\scripts\guardian.py init --out bracket.contract.json --part-name "Camera Bracket"
+-py -3 .\scripts\guardian.py audit bracket.stl --contract bracket.contract.json --json bracket.report.json --markdown bracket.report.md
++py -3 .\scripts\guardian.py capabilities-set `
++  .\guardian-project\capabilities.json export_stl available `
++  --tool "<actual-connected-tool-name>"
++
++py -3 .\scripts\guardian.py plan `
++  --contract .\guardian-project\contract.json `
++  --capabilities .\guardian-project\capabilities.json `
++  --json .\guardian-project\plan.json
+ ```
+ 
+-## What it checks
++Guardian does not infer tool availability from server names.
+ 
+-- STL dimensions and bounding box
+-- surface area and signed volume
+-- watertightness indicators
+-- boundary and non-manifold edges
+-- degenerate and duplicate triangles
+-- inconsistent shared-edge winding
+-- disconnected edge-connected shells
+-- triangle limits
+-- optional build-plane contact
+-- contract tolerances
++## Audit each exported part
+ 
+-## What it does not check
++```powershell
++py -3 .\scripts\guardian.py audit `
++  .\guardian-project\exports\camera-bracket.stl `
++  --contract .\guardian-project\contract.json `
++  --part-id camera_bracket `
++  --json .\guardian-project\reports\camera-bracket.json `
++  --markdown .\guardian-project\reports\camera-bracket.md
++```
+ 
+-It does not prove joint motion, continuous collision avoidance, minimum wall thickness, strength, material suitability, servo torque, backlash, print shrinkage, or rule compliance. Those remain Fusion, simulation, calculation, slicer, test, or human-review tasks.
++## Run the final gate
+ 
+-## Inspiration
++```powershell
++py -3 .\scripts\guardian.py gate `
++  --contract .\guardian-project\contract.json `
++  --evidence .\guardian-project\evidence.json `
++  --mesh-report .\guardian-project\reports\camera-bracket.json `
++  --mesh-report .\guardian-project\reports\sensor-cover.json `
++  --json .\guardian-project\reports\acceptance.json
++```
+ 
+-The workflow is independently implemented but takes architectural inspiration from:
++## Capability boundary
+ 
+-- Autodesk Fusion MCP workflows demonstrated by Fooping
+-- `AuraFriday/Fusion-360-MCP-Server` for broad Fusion API orchestration and context-aware workflows
+-- `Ravva/codex-fusion360-connector` for focused local execution, screenshots, and Codex skill packaging
++Guardian can verify exported mesh identity, overall dimensions, topology indicators, shells, triangle defects, surface area, volume, uniform-density centre of mass, configured mass, build-plane contact, and orientation heuristics.
+ 
+-Guardian intentionally chooses a different boundary: official Fusion MCP for live actions, dependency-free local scripts for deterministic verification.
++It cannot prove joint definitions, continuous collision-free motion, local clearances, minimum wall thickness, strength, fatigue, print success, material suitability, or rules compliance. Those require Fusion MCP evidence, calculation, simulation, slicer analysis, physical testing, or human engineering review.
+diff --git a/skills/fusion-cad-guardian/SKILL.md b/skills/fusion-cad-guardian/SKILL.md
+index 1a95dd2ebb770db15a3a56614fde8b2fc30e19a2..121f819122e1c73e47accd09e3591761ccffa29a 100644
+--- a/skills/fusion-cad-guardian/SKILL.md
++++ b/skills/fusion-cad-guardian/SKILL.md
+@@ -1,249 +1,286 @@
+ ---
+ name: fusion-cad-guardian
+-description: Verify Autodesk Fusion CAD work created or modified through a Fusion MCP server. Use for mechanical parts, assemblies, rover components, 3D-printable models, dimensional acceptance criteria, interference and motion checks, STL mesh auditing, before/after regression checks, and evidence-based repair loops. Do not use as a replacement for the Fusion MCP server or claim that STL analysis verifies joints, interference, clearances, or wall thickness.
++description: Work alongside Autodesk Fusion MCP as a verification and acceptance layer. Use to profile the connected MCP's real capabilities, turn CAD requests into testable single-part or multi-part contracts, track Fusion and engineering evidence, prove export provenance, safely audit STL meshes under resource limits, compare revisions, and issue PASS, CONDITIONAL_PASS, INCOMPLETE, or FAIL. Never use this skill to replace Fusion MCP or perform live CAD editing.
+ ---
+ 
+-# Fusion CAD Guardian
++# Fusion CAD Guardian 2.1
+ 
+-Use this skill **alongside** an Autodesk Fusion MCP server. The MCP edits and inspects the live Fusion design. This skill adds what a generic MCP connection usually lacks:
++Fusion CAD Guardian is the **planning, evidence, exported-mesh, and acceptance layer** around a connected Fusion MCP server.
+ 
+-- a machine-readable design contract;
+-- explicit pass/fail criteria before modeling starts;
+-- a bounded create -> inspect -> repair loop;
+-- deterministic offline auditing of exported STL files;
+-- before/after mesh regression comparison;
+-- a combined evidence report that separates verified facts from assumptions.
++- **Fusion MCP owns the live design:** inspect, create, edit, measure, save checkpoints, test joints, check interference, and export.
++- **Guardian owns verification discipline:** contracts, capability routing, evidence ledgers, export identity, deterministic STL analysis, regression comparison, and the final gate.
+ 
+-The local auditor is dependency-free Python and runs outside Fusion. It never executes arbitrary Python inside Fusion.
++Guardian runs dependency-free Python outside Fusion. It does not install an add-in, invoke Fusion APIs, or execute arbitrary Python inside Fusion.
+ 
+-## Non-negotiable boundaries
++## Absolute boundary
+ 
+-1. Use the official or user-selected Fusion MCP server for live CAD actions.
+-2. Do not install another Fusion add-in unless the user explicitly requests it.
+-3. Never claim a design passes because it looks correct in the viewport.
+-4. Never claim STL analysis verifies:
+-   - assembly interference;
+-   - joint definitions or range of motion;
+-   - component connectivity or fasteners;
+-   - minimum wall thickness;
+-   - manufacturing tolerances;
+-   - structural strength.
+-5. Verify those items in Fusion through available MCP tools or mark them `NOT VERIFIED`.
+-6. Run mesh checks only on exported geometry that corresponds to the final candidate design.
+-7. Preserve the user’s original document. Work in a new design, duplicate, version, or explicit checkpoint whenever Fusion supports it.
++| Operation | Owner |
++|---|---|
++| Create or modify Fusion geometry | Fusion MCP |
++| Inspect live components, features, parameters, joints, or interference | Fusion MCP |
++| Save/version/checkpoint the design | Fusion MCP |
++| Export the intended body or component | Fusion MCP, or an explicitly recorded manual Fusion export |
++| Discover and record which MCP capabilities exist | Guardian profile, based on actual MCP inspection |
++| Define measurable acceptance criteria | Guardian contract |
++| Track evidence and unresolved claims | Guardian evidence ledger |
++| Audit exported STL topology and global geometry | Guardian auditor |
++| Decide the final evidence-based verdict | Guardian gate |
+ 
