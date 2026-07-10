@@ -1,0 +1,562 @@
+diff --git a/skills/fusion-cad-guardian/assets/batch.example.json b/skills/fusion-cad-guardian/assets/batch.example.json
+index f9392e865943f239a4c0b00620cdcde7499422eb..d279b31d23e466e14457ca9939e50c0f6b7520b5 100644
+--- a/skills/fusion-cad-guardian/assets/batch.example.json
++++ b/skills/fusion-cad-guardian/assets/batch.example.json
+@@ -2,11 +2,13 @@
+   "jobs": [
+     {
+       "name": "camera-bracket",
++      "part_id": "camera_bracket",
+       "mesh": "exports/camera-bracket.stl",
+       "contract": "contract.json"
+     },
+     {
+       "name": "sensor-cover",
++      "part_id": "sensor_cover",
+       "mesh": "exports/sensor-cover.stl",
+       "contract": "contract.json"
+     }
+diff --git a/skills/fusion-cad-guardian/assets/contract.example.json b/skills/fusion-cad-guardian/assets/contract.example.json
+index 8f39ccd811ebeb0c7a4505136a4f13790651c393..7e20acf340374434cc811ef9b2457400a782d402 100644
+--- a/skills/fusion-cad-guardian/assets/contract.example.json
++++ b/skills/fusion-cad-guardian/assets/contract.example.json
+@@ -1,59 +1,247 @@
+ {
++  "$schema": "https://raw.githubusercontent.com/alexd-za/codex-skills/main/skills/fusion-cad-guardian/schemas/contract.schema.json",
+   "schema_version": 2,
+-  "part_name": "Rover Camera Bracket",
+-  "task_type": "part",
++  "schema_revision": "2.1",
++  "part_name": "Rover Camera Mount Assembly",
++  "task_type": "assembly",
+   "units": "mm",
+-  "mesh": {
+-    "expected_dimensions_mm": {
+-      "x": {"target": 80.0, "tolerance": 0.2},
+-      "y": {"target": 45.0, "tolerance": 0.2},
+-      "z": {"target": 32.0, "tolerance": 0.2}
+-    },
+-    "mass_g": {"max": 85.0},
+-    "density_g_cm3": 1.24,
+-    "require_watertight": true,
+-    "max_shells": 1,
+-    "max_boundary_edges": 0,
+-    "max_nonmanifold_edges": 0,
+-    "max_degenerate_triangles": 0,
+-    "max_duplicate_triangles": 0,
+-    "max_inconsistent_winding_edges": 0,
+-    "max_sliver_triangles": 50,
+-    "min_triangle_quality": 0.005,
+-    "min_triangles": 100,
+-    "max_triangles": 2000000,
+-    "require_positive_signed_volume": true,
+-    "build_plate": {
+-      "axis": "z",
+-      "plane_mm": 0.0,
+-      "tolerance_mm": 0.05,
+-      "min_contact_vertices": 3,
+-      "min_contact_area_mm2": 25.0
+-    },
+-    "orientation": {
+-      "build_axis": "z",
+-      "severe_overhang_angle_degrees": 45.0,
+-      "max_severe_downward_area_mm2": 600.0
++  "mesh": {},
++  "parts": [
++    {
++      "id": "camera_bracket",
++      "name": "Camera Bracket",
++      "required": true,
++      "mesh": {
++        "expected_dimensions_mm": {
++          "x": {
++            "target": 80.0,
++            "tolerance": 0.2
++          },
++          "y": {
++            "target": 45.0,
++            "tolerance": 0.2
++          },
++          "z": {
++            "target": 32.0,
++            "tolerance": 0.2
++          }
++        },
++        "require_watertight": true,
++        "max_shells": 1,
++        "max_boundary_edges": 0,
++        "max_nonmanifold_edges": 0,
++        "max_degenerate_triangles": 0,
++        "max_duplicate_triangles": 0,
++        "max_inconsistent_winding_edges": 0,
++        "max_sliver_triangles": 50,
++        "min_triangle_quality": 0.01,
++        "min_triangles": 12,
++        "max_triangles": 2000000,
++        "require_positive_signed_volume": true
++      },
++      "fusion_requirements": [
++        {
++          "id": "component_present",
++          "required": true,
++          "capability": "inspect_component_structure",
++          "description": "Part component/body exists and is uniquely identifiable"
++        },
++        {
++          "id": "critical_parameters",
++          "required": true,
++          "capability": "read_parameters",
++          "description": "Part-specific critical parameters verified"
++        },
++        {
++          "id": "feature_health",
++          "required": true,
++          "capability": "inspect_feature_health",
++          "description": "Part-specific feature history has no unresolved failures"
++        },
++        {
++          "id": "export_selection",
++          "required": true,
++          "capability": "export_stl",
++          "description": "Correct part body/component selected for export"
++        }
++      ],
++      "engineering_requirements": [
++        {
++          "id": "fastener_fit_reviewed",
++          "required": true,
++          "description": "M3 fastener fits and print clearances reviewed"
++        }
++      ],
++      "notes": [
++        "Replace placeholder mesh dimensions with this part's actual acceptance criteria."
++      ]
++    },
++    {
++      "id": "sensor_cover",
++      "name": "Sensor Cover",
++      "required": true,
++      "mesh": {
++        "expected_dimensions_mm": {
++          "x": {
++            "target": 55.0,
++            "tolerance": 0.2
++          },
++          "y": {
++            "target": 38.0,
++            "tolerance": 0.2
++          },
++          "z": {
++            "target": 18.0,
++            "tolerance": 0.2
++          }
++        },
++        "require_watertight": true,
++        "max_shells": 1,
++        "max_boundary_edges": 0,
++        "max_nonmanifold_edges": 0,
++        "max_degenerate_triangles": 0,
++        "max_duplicate_triangles": 0,
++        "max_inconsistent_winding_edges": 0,
++        "max_sliver_triangles": 40,
++        "min_triangle_quality": 0.01,
++        "min_triangles": 12,
++        "max_triangles": 2000000,
++        "require_positive_signed_volume": true
++      },
++      "fusion_requirements": [
++        {
++          "id": "component_present",
++          "required": true,
++          "capability": "inspect_component_structure",
++          "description": "Part component/body exists and is uniquely identifiable"
++        },
++        {
++          "id": "critical_parameters",
++          "required": true,
++          "capability": "read_parameters",
++          "description": "Part-specific critical parameters verified"
++        },
++        {
++          "id": "feature_health",
++          "required": true,
++          "capability": "inspect_feature_health",
++          "description": "Part-specific feature history has no unresolved failures"
++        },
++        {
++          "id": "export_selection",
++          "required": true,
++          "capability": "export_stl",
++          "description": "Correct part body/component selected for export"
++        }
++      ],
++      "engineering_requirements": [],
++      "notes": [
++        "Replace placeholder mesh dimensions with this part's actual acceptance criteria."
++      ]
+     }
+-  },
++  ],
+   "fusion_requirements": [
+-    {"id": "active_document", "required": true, "description": "Active Fusion document confirmed"},
+-    {"id": "safe_checkpoint", "required": true, "description": "Recoverable checkpoint created"},
+-    {"id": "units_confirmed", "required": true, "description": "Fusion design units are millimetres"},
+-    {"id": "component_structure", "required": true, "description": "Bracket is a separate named component with one printable body"},
+-    {"id": "critical_parameters", "required": true, "description": "Mount spacing, camera angle and fastener diameters verified"},
+-    {"id": "feature_health", "required": true, "description": "No failed or warning features remain"},
+-    {"id": "export_selection", "required": true, "description": "Only the final bracket body is exported"}
++    {
++      "id": "active_document",
++      "required": true,
++      "capability": "inspect_active_document",
++      "description": "Active Fusion document and design context confirmed"
++    },
++    {
++      "id": "safe_checkpoint",
++      "required": true,
++      "capability": "save_checkpoint",
++      "description": "Original design preserved by save, version, copy, or explicit checkpoint"
++    },
++    {
++      "id": "units_confirmed",
++      "required": true,
++      "capability": "read_units",
++      "description": "Design units confirmed"
++    },
++    {
++      "id": "component_structure",
++      "required": true,
++      "capability": "inspect_component_structure",
++      "description": "Expected components and bodies verified"
++    },
++    {
++      "id": "critical_parameters",
++      "required": true,
++      "capability": "read_parameters",
++      "description": "Critical dimensions or named parameters verified in Fusion"
++    },
++    {
++      "id": "feature_health",
++      "required": true,
++      "capability": "inspect_feature_health",
++      "description": "No unresolved feature or timeline failures"
++    },
++    {
++      "id": "export_selection",
++      "required": true,
++      "capability": "export_stl",
++      "description": "Exported body/component matches the intended final candidate"
++    },
++    {
++      "id": "joints_verified",
++      "required": true,
++      "capability": "test_joints",
++      "description": "Joint type, axis, limits, and intended degrees of freedom verified"
++    },
++    {
++      "id": "motion_sampled",
++      "required": true,
++      "capability": "test_joints",
++      "description": "Neutral, extreme, and representative intermediate positions inspected"
++    },
++    {
++      "id": "interference_checked",
++      "required": true,
++      "capability": "check_interference",
++      "description": "Interference checked at representative positions"
++    }
+   ],
+   "engineering_requirements": [
+-    {"id": "material_confirmed", "required": false, "description": "PETG material and print process confirmed"},
+-    {"id": "loads_reviewed", "required": false, "description": "Camera mass, rover vibration and impact loads reviewed"},
+-    {"id": "tolerances_reviewed", "required": false, "description": "Fastener fits and print shrinkage reviewed"},
+-    {"id": "physical_test_planned", "required": false, "description": "Fit and vibration test planned"}
++    {
++      "id": "material_confirmed",
++      "required": false,
++      "description": "Material and manufacturing process confirmed"
++    },
++    {
++      "id": "loads_reviewed",
++      "required": false,
++      "description": "Expected loads, torque, impact, and safety factors reviewed"
++    },
++    {
++      "id": "tolerances_reviewed",
++      "required": false,
++      "description": "Fits, clearances, shrinkage, and manufacturing tolerances reviewed"
++    },
++    {
++      "id": "physical_test_planned",
++      "required": false,
++      "description": "Physical fit/function test planned before competition or deployment"
++    }
++  ],
++  "assembly_requirements": [
++    {
++      "id": "mount_interface_verified",
++      "required": true,
++      "capability": "measure_geometry",
++      "description": "Bracket-to-cover mounting interface dimensions verified"
++    }
+   ],
+   "export_provenance_required": true,
++  "resource_limits": {
++    "max_file_size_mb": 512.0,
++    "max_triangles": 5000000,
++    "max_coordinate_abs_mm": 1000000.0,
++    "max_estimated_memory_mb": 2048.0
++  },
+   "notes": [
+-    "STL dimensions are bounding-box dimensions, not local feature tolerances.",
+-    "Orientation metrics are heuristics and do not replace slicer analysis."
++    "Replace example dimensions with actual acceptance criteria.",
++    "Mesh checks do not verify wall thickness, joints, strength, or local feature tolerances.",
++    "When parts is non-empty, audit each export with --part-id."
+   ]
+ }
+diff --git a/skills/fusion-cad-guardian/assets/evidence.example.json b/skills/fusion-cad-guardian/assets/evidence.example.json
+index 42295e24de52fd0d11cb5471948c13a01fab6eea..296c62aae5f4face828ce538a571d26e2e859730 100644
+--- a/skills/fusion-cad-guardian/assets/evidence.example.json
++++ b/skills/fusion-cad-guardian/assets/evidence.example.json
+@@ -1,47 +1,278 @@
+ {
++  "$schema": "https://raw.githubusercontent.com/alexd-za/codex-skills/main/skills/fusion-cad-guardian/schemas/evidence.schema.json",
+   "schema_version": 1,
+   "design": {
+-    "document": "Rover Camera Bracket",
++    "document": "Rover Camera Mount Assembly",
+     "checkpoint": "Version 7",
+     "units": "mm",
+-    "fusion_mcp_server": "Autodesk Fusion MCP"
++    "fusion_mcp_server": "Autodesk Fusion MCP",
++    "capability_profile": "capabilities.json"
+   },
+   "checks": [
+     {
+       "id": "active_document",
++      "part_id": "",
+       "required": true,
+       "status": "PASS",
+-      "method": "Fusion MCP document inspection",
+-      "evidence": "Active document reported as Rover Camera Bracket",
+-      "source": "fusion_mcp"
++      "method": "Fusion MCP inspection",
++      "evidence": "Verified active_document in Version 7",
++      "source": "fusion_mcp",
++      "timestamp": ""
+     },
+     {
+       "id": "safe_checkpoint",
++      "part_id": "",
+       "required": true,
+       "status": "PASS",
+-      "method": "Fusion save/version operation",
+-      "evidence": "Version 7 created before final edits",
+-      "source": "fusion_mcp"
++      "method": "Fusion MCP inspection",
++      "evidence": "Verified safe_checkpoint in Version 7",
++      "source": "fusion_mcp",
++      "timestamp": ""
++    },
++    {
++      "id": "units_confirmed",
++      "part_id": "",
++      "required": true,
++      "status": "PASS",
++      "method": "Fusion MCP inspection",
++      "evidence": "Verified units_confirmed in Version 7",
++      "source": "fusion_mcp",
++      "timestamp": ""
++    },
++    {
++      "id": "component_structure",
++      "part_id": "",
++      "required": true,
++      "status": "NOT_VERIFIED",
++      "method": "",
++      "evidence": "",
++      "source": "fusion_mcp",
++      "timestamp": ""
++    },
++    {
++      "id": "critical_parameters",
++      "part_id": "",
++      "required": true,
++      "status": "NOT_VERIFIED",
++      "method": "",
++      "evidence": "",
++      "source": "fusion_mcp",
++      "timestamp": ""
++    },
++    {
++      "id": "feature_health",
++      "part_id": "",
++      "required": true,
++      "status": "NOT_VERIFIED",
++      "method": "",
++      "evidence": "",
++      "source": "fusion_mcp",
++      "timestamp": ""
++    },
++    {
++      "id": "export_selection",
++      "part_id": "",
++      "required": true,
++      "status": "NOT_VERIFIED",
++      "method": "",
++      "evidence": "",
++      "source": "fusion_mcp",
++      "timestamp": ""
++    },
++    {
++      "id": "joints_verified",
++      "part_id": "",
++      "required": true,
++      "status": "NOT_VERIFIED",
++      "method": "",
++      "evidence": "",
++      "source": "fusion_mcp",
++      "timestamp": ""
++    },
++    {
++      "id": "motion_sampled",
++      "part_id": "",
++      "required": true,
++      "status": "NOT_VERIFIED",
++      "method": "",
++      "evidence": "",
++      "source": "fusion_mcp",
++      "timestamp": ""
++    },
++    {
++      "id": "interference_checked",
++      "part_id": "",
++      "required": true,
++      "status": "NOT_VERIFIED",
++      "method": "",
++      "evidence": "",
++      "source": "fusion_mcp",
++      "timestamp": ""
++    },
++    {
++      "id": "material_confirmed",
++      "part_id": "",
++      "required": false,
++      "status": "NOT_APPLICABLE",
++      "method": "",
++      "evidence": "Optional example requirement not used in this demonstration",
++      "source": "human_review",
++      "timestamp": ""
+     },
+     {
+       "id": "loads_reviewed",
++      "part_id": "",
++      "required": false,
++      "status": "NOT_APPLICABLE",
++      "method": "",
++      "evidence": "Optional example requirement not used in this demonstration",
++      "source": "human_review",
++      "timestamp": ""
++    },
++    {
++      "id": "tolerances_reviewed",
++      "part_id": "",
+       "required": false,
++      "status": "NOT_APPLICABLE",
++      "method": "",
++      "evidence": "Optional example requirement not used in this demonstration",
++      "source": "human_review",
++      "timestamp": ""
++    },
++    {
++      "id": "physical_test_planned",
++      "part_id": "",
++      "required": false,
++      "status": "NOT_APPLICABLE",
++      "method": "",
++      "evidence": "Optional example requirement not used in this demonstration",
++      "source": "human_review",
++      "timestamp": ""
++    },
++    {
++      "id": "mount_interface_verified",
++      "part_id": "",
++      "required": true,
++      "status": "NOT_VERIFIED",
++      "method": "",
++      "evidence": "",
++      "source": "fusion_mcp",
++      "timestamp": ""
++    },
++    {
++      "id": "camera_bracket.component_present",
++      "part_id": "camera_bracket",
++      "required": true,
++      "status": "NOT_VERIFIED",
++      "method": "",
++      "evidence": "",
++      "source": "fusion_mcp",
++      "timestamp": ""
++    },
++    {
++      "id": "camera_bracket.critical_parameters",
++      "part_id": "camera_bracket",
++      "required": true,
++      "status": "NOT_VERIFIED",
++      "method": "",
++      "evidence": "",
++      "source": "fusion_mcp",
++      "timestamp": ""
++    },
++    {
++      "id": "camera_bracket.feature_health",
++      "part_id": "camera_bracket",
++      "required": true,
++      "status": "NOT_VERIFIED",
++      "method": "",
++      "evidence": "",
++      "source": "fusion_mcp",
++      "timestamp": ""
++    },
++    {
++      "id": "camera_bracket.export_selection",
++      "part_id": "camera_bracket",
++      "required": true,
++      "status": "NOT_VERIFIED",
++      "method": "",
++      "evidence": "",
++      "source": "fusion_mcp",
++      "timestamp": ""
++    },
++    {
++      "id": "camera_bracket.fastener_fit_reviewed",
++      "part_id": "camera_bracket",
++      "required": true,
++      "status": "NOT_VERIFIED",
++      "method": "",
++      "evidence": "",
++      "source": "human_review",
++      "timestamp": ""
++    },
++    {
++      "id": "sensor_cover.component_present",
++      "part_id": "sensor_cover",
++      "required": true,
++      "status": "NOT_VERIFIED",
++      "method": "",
++      "evidence": "",
++      "source": "fusion_mcp",
++      "timestamp": ""
++    },
++    {
++      "id": "sensor_cover.critical_parameters",
++      "part_id": "sensor_cover",
++      "required": true,
++      "status": "NOT_VERIFIED",
++      "method": "",
++      "evidence": "",
++      "source": "fusion_mcp",
++      "timestamp": ""
++    },
++    {
