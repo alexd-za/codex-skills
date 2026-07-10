@@ -3,7 +3,7 @@ name: Import skill payload
 on:
   push:
     paths:
-      - '.skill-payload/fusion-cad-guardian.zip.b64'
+      - '.skill-payload/READY'
 
 permissions:
   contents: write
@@ -17,13 +17,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -f .skill-payload/fusion-cad-guardian.zip.b64
+          test -f .skill-payload/READY
+          cat .skill-payload/chunks/*.b64 | base64 --decode > /tmp/fusion-cad-guardian.zip
           rm -rf skills/fusion-cad-guardian
           mkdir -p skills
-          base64 --decode .skill-payload/fusion-cad-guardian.zip.b64 > /tmp/fusion-cad-guardian.zip
           unzip -q /tmp/fusion-cad-guardian.zip -d skills
           test -f skills/fusion-cad-guardian/SKILL.md
-          rm -f .skill-payload/fusion-cad-guardian.zip.b64
+          VERSION=$(cat .skill-payload/READY)
+          rm -rf .skill-payload
+          echo "SKILL_VERSION=$VERSION" >> "$GITHUB_ENV"
       - name: Commit imported skill
         shell: bash
         run: |
@@ -31,5 +33,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "feat(fusion-cad-guardian): import v1.0.0" || exit 0
+          git commit -m "feat(fusion-cad-guardian): import ${SKILL_VERSION}" || exit 0
           git push
