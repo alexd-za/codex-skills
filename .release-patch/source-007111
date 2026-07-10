@@ -1,0 +1,20 @@
+    if not isinstance(job, dict) or "mesh" not in job:
+             raise GuardianError(f"batch job {index} must contain mesh")
+         name = str(job.get("name") or Path(str(job["mesh"])).stem)
+-        mesh = Path(str(job["mesh"]))
+-        mesh = mesh if mesh.is_absolute() else base / mesh
++        mesh = Path(str(job["mesh"])); mesh = mesh if mesh.is_absolute() else base / mesh
+         contract = Path(str(job["contract"])) if job.get("contract") else None
+-        if contract and not contract.is_absolute():
+-            contract = base / contract
+-        report = audit_stl(
++        if contract and not contract.is_absolute(): contract = base / contract
++        report = audit_mesh(
+             mesh,
+             contract_path=contract,
+             part_id=job.get("part_id"),
++            object_id=job.get("object_id"),
++            object_name=job.get("object_name"),
+             weld_tolerance_mm=args.weld_tolerance,
+             area_epsilon_mm2=args.area_epsilon,
+          
