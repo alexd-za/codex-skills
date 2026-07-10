@@ -19,9 +19,9 @@ jobs:
           set -euo pipefail
           test -f .skill-payload/READY
           test -f .skill-payload/v2.1.0.part000
-          cat .skill-payload/v2.1.0.part* | base64 --decode > /tmp/fusion-cad-guardian-v2.1.0.zip
+          cat .skill-payload/v2.1.0.part* | base64 --decode > /tmp/fusion-cad-guardian-v2.1.0.tar.xz
           expected="$(tr -d '\r\n' < .skill-payload/READY)"
-          actual="$(sha256sum /tmp/fusion-cad-guardian-v2.1.0.zip | awk '{print $1}')"
+          actual="$(sha256sum /tmp/fusion-cad-guardian-v2.1.0.tar.xz | awk '{print $1}')"
           test "$actual" = "$expected"
       - name: Replace skill with v2.1.0
         shell: bash
@@ -29,7 +29,7 @@ jobs:
           set -euo pipefail
           rm -rf skills/fusion-cad-guardian /tmp/guardian-import
           mkdir -p skills /tmp/guardian-import
-          unzip -q /tmp/fusion-cad-guardian-v2.1.0.zip -d /tmp/guardian-import
+          tar -xJf /tmp/fusion-cad-guardian-v2.1.0.tar.xz -C /tmp/guardian-import
           test -f /tmp/guardian-import/fusion-cad-guardian/SKILL.md
           test "$(tr -d '\r\n' < /tmp/guardian-import/fusion-cad-guardian/VERSION)" = "2.1.0"
           mv /tmp/guardian-import/fusion-cad-guardian skills/fusion-cad-guardian
